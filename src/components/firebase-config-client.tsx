@@ -4,7 +4,7 @@
 import React, { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Settings } from 'lucide-react';
 
 import type { FirebaseConfig } from '@/lib/types';
 import { serviceConfig } from '@/lib/config';
@@ -57,9 +57,12 @@ export function FirebaseConfigClient({ initialConfig }: FirebaseConfigClientProp
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-            <h2 className="text-3xl font-bold font-headline tracking-tight">Firebase Services</h2>
-            <p className="text-muted-foreground">Enable or disable Firebase services for your project.</p>
+        <div className="flex items-center gap-4">
+            <Settings className="h-8 w-8 text-primary" />
+            <div>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">Firebase Settings</h1>
+                <p className="text-muted-foreground">Enable or disable Firebase services for your project.</p>
+            </div>
         </div>
         <Button onClick={handleSave} disabled={isPending} size="lg">
           {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

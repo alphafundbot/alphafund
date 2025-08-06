@@ -1,16 +1,16 @@
-import { fetchConfig } from '@/app/actions';
-import { FirebaseConfigClient } from '@/components/firebase-config-client';
-import { Header } from '@/components/header';
+import { LayoutDashboard } from "lucide-react";
+import { AppLayout } from "@/components/layout";
 
-export default async function Home() {
-  const config = await fetchConfig();
-
+export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Header />
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <FirebaseConfigClient initialConfig={config} />
-      </main>
-    </div>
+    <AppLayout>
+      <div className="flex items-center gap-4">
+        <LayoutDashboard className="h-8 w-8 text-primary" />
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
+          <p className="text-muted-foreground">Welcome to your Firebase Pilot dashboard.</p>
+        </div>
+      </div>
+    </AppLayout>
   );
 }

@@ -6,6 +6,8 @@ import { fetchConfig } from "@/app/actions";
 import type { FirebaseConfig } from "@/lib/types";
 import { defaultConfig } from "@/lib/config";
 
+// This hook is now deprecated in favor of useSystemStatus for the dashboard
+// but is kept for potential use in other components that might need the signal map.
 type SignalMap = FirebaseConfig['signal'];
 
 export const useSignalMap = () => {

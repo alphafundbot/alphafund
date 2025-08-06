@@ -2,28 +2,35 @@
 'use client';
 
 import React from "react";
-import { useSignalMap } from "@/hooks/use-signal-map";
-import { Card as ShadCard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSystemStatus } from "@/hooks/use-system-status";
+import { Card as ShadCard, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignalChart } from "@/components/signal-chart";
-import { CheckCircle, Clock, GanttChart, ShieldAlert, XCircle } from "lucide-react";
-
-const systemStatus = {
-  access: "pending",
-  meshEntropy: "inactive",
-  modules: {
-    signal: false,
-    finance: false,
-    governance: false,
-    planetary: false
-  },
-  credentialStatus: "notInjected",
-  lastAudit: "2025-08-06T08:53:00Z",
-  total: 0
-};
+import { CheckCircle, Clock, GanttChart, ShieldAlert, XCircle, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { pulseVault } from "@/app/actions.server";
+import { useToast } from "@/hooks/use-toast";
 
 const StrategistDashboard = () => {
-  const { signal, loading } = useSignalMap();
+  const { status, loading } = useSystemStatus();
+  const { toast } = useToast();
+
+  const handlePulseVault = async () => {
+      const result = await pulseVault();
+      if (result.status === "vault-pulsed") {
+        toast({
+          title: "Vault Pulsed",
+          description: "Mesh entropy has been successfully synced.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Vault Pulse Failed",
+          description: `Could not sync mesh entropy. Reason: ${result.reason || 'Unknown'}`,
+          variant: "destructive",
+        });
+      }
+  };
 
   if (loading) {
     return (
@@ -62,22 +69,19 @@ const StrategistDashboard = () => {
     );
   }
 
-  const revenueTotal = signal.revenueAudit?.total ?? systemStatus.total;
-
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Nodes Online" value={signal.cluster1} />
-        <Card title="Vault Status" value={signal.vaultStatus} />
-        <Card title="Revenue Audit" value={revenueTotal} />
-        <StatusCard title="Mesh Entropy" status={systemStatus.meshEntropy} icon={GanttChart} />
+        <Card title="Nodes Online" value={status.nodesOnline} />
+        <Card title="Revenue Audit" value={status.revenueTotal} />
+        <StatusCard title="Mesh Entropy" status={status.meshEntropy} icon={GanttChart} />
+        <StatusCard title="Access" status={status.access} icon={ShieldAlert} />
       </div>
 
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <StatusCard title="Access" status={systemStatus.access} icon={ShieldAlert} />
-        <VaultSimCard status={systemStatus.credentialStatus} />
-        <StatusCard title="Last Audit" status={new Date(systemStatus.lastAudit).toLocaleDateString()} icon={Clock} />
-        <ModuleStatusCard modules={systemStatus.modules} />
+        <VaultStatusCard status={status.credentialStatus} onPulse={handlePulseVault} />
+        <StatusCard title="Last Audit" status={new Date(status.lastAudit).toLocaleDateString()} icon={Clock} />
+        <ModuleStatusCard modules={status.modules} />
       </div>
       
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
@@ -101,7 +105,7 @@ const Card = ({ title, value }: { title: string; value: any }) => (
     </ShadCard>
 );
 
-const VaultSimCard = ({ status }: { status: string }) => {
+const VaultStatusCard = ({ status, onPulse }: { status: string; onPulse: () => void }) => {
     const colorMap: { [key: string]: string } = {
         injected: "bg-green-600",
         notInjected: "bg-yellow-400",
@@ -115,13 +119,19 @@ const VaultSimCard = ({ status }: { status: string }) => {
     }
 
     return (
-        <ShadCard className={`text-white ${colorMap[status] || 'bg-gray-500'}`}>
+        <ShadCard className={`text-white flex flex-col ${colorMap[status] || 'bg-gray-500'}`}>
             <CardHeader>
                 <CardTitle className="text-sm text-white/80 font-medium">Credential Status</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow">
                 <p className="text-2xl font-semibold">{statusTextMap[status] || 'Unknown'}</p>
             </CardContent>
+            <CardFooter>
+                <Button variant="ghost" className="w-full text-white/80 hover:bg-white/20 hover:text-white" onClick={onPulse}>
+                    <Zap className="mr-2 h-4 w-4" />
+                    Pulse Vault
+                </Button>
+            </CardFooter>
         </ShadCard>
     );
 };
@@ -144,7 +154,7 @@ const ModuleStatusCard = ({ modules }: { modules: Record<string, boolean> }) => 
     <CardHeader>
       <CardTitle className="text-sm font-medium text-muted-foreground">Module Status</CardTitle>
     </CardHeader>
-    <CardContent className="flex flex-wrap gap-4">
+    <CardContent className="grid grid-cols-2 gap-4 pt-4">
       {Object.entries(modules).map(([key, value]) => (
         <div key={key} className="flex items-center gap-2">
           {value ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}

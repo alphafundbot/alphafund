@@ -1,0 +1,9 @@
+{
+  "npm.packageManager": "npm",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/*.log": true
+    "**/.env": true
+ "**/dist": true
+  }
+}

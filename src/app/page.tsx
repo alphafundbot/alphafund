@@ -7,7 +7,6 @@ import { Card as ShadCard, CardContent, CardHeader, CardTitle, CardFooter } from
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignalChart } from "@/components/signal-chart";
 import { CheckCircle, Clock, GanttChart, ShieldAlert, XCircle, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { pulseVault } from "@/app/actions.server";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,8 +70,8 @@ const StrategistDashboard = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Nodes Online" value={status.nodesOnline} />
+ <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+ <Card title="Nodes Online" value={status.nodesOnline} />
         <Card title="Revenue Audit" value={status.revenueTotal} />
         <StatusCard title="Mesh Entropy" status={status.meshEntropy} icon={GanttChart} />
         <StatusCard title="Access" status={status.access} icon={ShieldAlert} />
@@ -86,7 +85,7 @@ const StrategistDashboard = () => {
       
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Chart title="Signal Throughput" />
-        <div className="lg:col-span-2">
+ <div className="lg:col-span-2">
             <Console title="Memory Feed" feed={[]} />
         </div>
       </div>
@@ -118,7 +117,7 @@ const VaultStatusCard = ({ status, onPulse }: { status: string; onPulse: () => v
         error: "Error",
     }
 
-    return (
+ return (
         <ShadCard className={`text-white flex flex-col ${colorMap[status] || 'bg-gray-500'}`}>
             <CardHeader>
                 <CardTitle className="text-sm text-white/80 font-medium">Credential Status</CardTitle>
@@ -126,11 +125,10 @@ const VaultStatusCard = ({ status, onPulse }: { status: string; onPulse: () => v
             <CardContent className="flex-grow">
                 <p className="text-2xl font-semibold">{statusTextMap[status] || 'Unknown'}</p>
             </CardContent>
-            <CardFooter>
-                <Button variant="ghost" className="w-full text-white/80 hover:bg-white/20 hover:text-white" onClick={onPulse}>
-                    <Zap className="mr-2 h-4 w-4" />
+ <CardFooter className="p-0">
+ <button className="flex items-center justify-center w-full text-white/80 hover:bg-white/20 hover:text-white py-3" onClick={onPulse}>
                     Pulse Vault
-                </Button>
+ </button>
             </CardFooter>
         </ShadCard>
     );

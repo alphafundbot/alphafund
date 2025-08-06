@@ -1,0 +1,16 @@
+name: Strategist Mesh Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: npm ci
+      - run: npm run build
+      - run: npm run vault:sync
+      - run: npm run mesh:init
+      - run: npm run telemetry:ingest

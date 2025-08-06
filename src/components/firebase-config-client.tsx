@@ -9,8 +9,8 @@ import { Loader2, Save, Settings } from 'lucide-react';
 import type { FirebaseConfig } from '@/lib/types';
 import { serviceConfig } from '@/lib/config';
 import { saveConfig, fetchConfig } from '@/app/actions';
-import { ConfigCategoryCard } from './config-category-card';
-import { ConfigAuditor } from './config-auditor';
+import { ConfigCategoryCard } from './config-category-card'; // Corrected import path
+import { ConfigAuditor } from './config-auditor'; // Corrected import path
 import { runConfigAudit } from '@/app/actions.server';
 
 
@@ -84,7 +84,7 @@ export function FirebaseConfigClient({ initialConfig }: FirebaseConfigClientProp
         ))}
       </div>
 
-      <ConfigAuditor currentConfig={config} />
+      <ConfigAuditor config={config} /> {/* Assuming ConfigAuditor expects a prop named 'config' */}
     </div>
   );
 }

@@ -1,19 +1,7 @@
-
 import type { LucideIcon } from 'lucide-react';
 import type { defaultConfig } from './config';
 
+// Keep this file clean and avoid duplicating types from other files.
+// Export necessary types from other files here for convenience if needed.
+
 export type FirebaseConfig = typeof defaultConfig;
-
-export type ServiceItem = {
-    name: string;
-    description: string;
-};
-
-export type ServiceCategoryConfig = {
-    title: string;
-    description: string;
-    icon: LucideIcon;
-    items: Record<string, ServiceItem>;
-};
-
-export type ServiceConfig = Record<keyof FirebaseConfig, ServiceCategoryConfig>;

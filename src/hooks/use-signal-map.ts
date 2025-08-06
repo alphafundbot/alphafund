@@ -1,39 +1,7 @@
 
-'use client';
-
-import { useEffect, useState } from "react";
-import { fetchConfig } from "@/app/actions";
-import type { FirebaseConfig } from "@/lib/types";
-import { defaultConfig } from "@/lib/config";
-
-// This hook is now deprecated in favor of useSystemStatus for the dashboard
-// but is kept for potential use in other components that might need the signal map.
-type SignalMap = FirebaseConfig['signal'];
-
 export const useSignalMap = () => {
-  const [signalMap, setSignalMap] = useState<SignalMap>(defaultConfig.signal);
-  const [loading, setLoading] = useState(true);
+  const entropyLevel = ['online', 'degraded', 'offline'][Math.floor(Math.random() * 3)] as const;
+  const accessLevel = ['online', 'degraded', 'offline'][Math.floor(Math.random() * 3)] as const;
 
-  useEffect(() => {
-    const refresh = async () => {
-      setLoading(true);
-      try {
-        const config = await fetchConfig();
-        const newSignalMap = config?.signal ?? defaultConfig.signal;
-        setSignalMap(newSignalMap);
-      } catch (error) {
-        console.error("Failed to fetch signal map:", error);
-        setSignalMap(defaultConfig.signal);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    refresh();
-    const interval = setInterval(refresh, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  return { signal: signalMap, loading };
+  return { entropyLevel, accessLevel };
 };

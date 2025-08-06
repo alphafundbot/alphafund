@@ -1,0 +1,10 @@
+{
+  "us-west": {
+    "allowedRegions": ["us-east", "ca-central"],
+    "tierOverride": "Tier-2"
+  },
+  "eu-central": {
+    "allowedRegions": ["eu-west", "eu-north"],
+    "tierOverride": "Tier-3"
+  }
+}

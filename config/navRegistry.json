@@ -1,0 +1,20 @@
+[
+  {
+    "id": "telecom-routing",
+    "label": "Telecom Routing",
+    "route": "/telecom/routing",
+    "category": "telecom",
+    "jurisdictionalImpact": true,
+    "signalSensitive": true,
+    "auditStatus": "pending"
+  },
+  {
+    "id": "vault-keys",
+    "label": "Vault Key Manager",
+    "route": "/security/vault",
+    "category": "compliance",
+    "jurisdictionalImpact": true,
+    "signalSensitive": false,
+    "auditStatus": "compliant"
+  }
+]

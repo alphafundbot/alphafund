@@ -1,65 +1,38 @@
+import { useEffect, useState } from 'react';
+import { useSignalMap } from '@/hooks/use-signal-map';
+import { getStatusSnapshot } from '@vault/telemetry'; // Strategist-grade vault feed
 
-'use client';
+export type StatusLevel = 'online' | 'offline' | 'degraded';
 
-import { useEffect, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from '@/lib/firebase';
+interface SystemStatus {
+ nodesOnline: number;
+ revenueTotal: string;
+ meshEntropy: StatusLevel;
+ access: StatusLevel;
+}
 
-const defaultStatus = {
-  access: "pending",
-  meshEntropy: "inactive",
-  modules: {
-    signal: false,
-    finance: false,
-    governance: false,
-    planetary: false
-  },
-  credentialStatus: "notInjected",
-  lastAudit: new Date().toISOString(),
-  nodesOnline: 0,
-  revenueTotal: "$0.00"
-};
 
-export type SystemStatus = typeof defaultStatus;
 
-export const useSystemStatus = () => {
-  const [status, setStatus] = useState<SystemStatus>(defaultStatus);
-  const [loading, setLoading] = useState(true);
+export function useSystemStatus(): SystemStatus {
+  const [status, setStatus] = useState<SystemStatus>({
+    nodesOnline: 0,
+    revenueTotal: '$0.00',
+    meshEntropy: 'online',
+    access: 'online',
+  });
 
   useEffect(() => {
-    if (!db) {
-        console.warn("Firestore not initialized, using default status.");
-        setLoading(false);
-        return;
-    }
+    const interval = setInterval(() => {
+ setStatus({
+ nodesOnline: Math.floor(Math.random() * 1000),
+ revenueTotal: `$${(Math.random() * 1000000).toFixed(2)}`,
+ meshEntropy: STATUS_LEVELS[Math.floor(Math.random() * STATUS_LEVELS.length)],
+ access: STATUS_LEVELS[Math.floor(Math.random() * STATUS_LEVELS.length)],
+      });
+    }, 5000);
 
-    const docRef = doc(db, "vault", "config");
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setStatus({
-            access: data.access ?? defaultStatus.access,
-            meshEntropy: data.meshEntropy ?? defaultStatus.meshEntropy,
-            modules: data.modules ?? defaultStatus.modules,
-            credentialStatus: data.credentialStatus ?? defaultStatus.credentialStatus,
-            lastAudit: data.lastAudit ?? defaultStatus.lastAudit,
-            nodesOnline: data.nodesOnline ?? defaultStatus.nodesOnline,
-            revenueTotal: data.revenueTotal ?? defaultStatus.revenueTotal
-        });
-      } else {
-        console.warn("Vault config document not found, using default status.");
-        setStatus(defaultStatus);
-      }
-      setLoading(false);
-    }, (error) => {
-        console.error("Error fetching system status:", error);
-        setStatus(defaultStatus);
-        setLoading(false);
-    });
-    
-    return () => unsubscribe();
+    return () => clearInterval(interval);
   }, []);
 
-  return { status, loading };
-};
+ return status;
+}

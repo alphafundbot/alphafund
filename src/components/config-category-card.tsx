@@ -1,3 +1,45 @@
+'use client';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useServiceConfig } from '@/hooks/useServiceConfig';
+import { iconMap } from '@/lib/config';
+import type { ServiceCategoryConfig } from '@/lib/config-types';
+import { SignalIcon } from './SignalIcon';
+
+interface ConfigCategoryCardProps {
+  category: string;
+}
+
+export function ConfigCategoryCard({ category }: ConfigCategoryCardProps) {
+  const config = useServiceConfig(category);
+
+  if (!config) {
+    return null; // Return null or a loading indicator if config is not loaded yet
+  }
+
+  const { title, description, items } = config as ServiceCategoryConfig; // Assert type after checking for null
+
+  // Look up the icon using the category key
+  const Icon = iconMap[category];
+
+  // Determine if the SignalIcon should be disabled (e.g., if there are no items)
+  const isDisabled = Object.keys(items).length === 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <SignalIcon Icon={Icon} title={title} disabled={isDisabled} />
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      {/* You can add CardContent here if needed, perhaps iterating over items */}
+    </Card>
+  );
+}
 
 'use client';
 

@@ -3,12 +3,12 @@
 
 import { z } from 'zod';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { serviceConfig, defaultConfig } from '@/lib/config';
 import type { FirebaseConfig } from '@/lib/types';
 import { auditConfig, type AuditConfigOutput } from '@/ai/flows/config-auditor';
+import adminDb from '@/lib/firebase-admin';
 
-const configRef = doc(db, 'config', 'globalSettings');
+
 const ConfigSchema = z.object(
   Object.keys(serviceConfig).reduce((acc, category) => {
     acc[category] = z.object(
@@ -22,13 +22,12 @@ const ConfigSchema = z.object(
 );
 
 export async function fetchConfig(): Promise<FirebaseConfig> {
+  const configRef = adminDb.collection('config').doc('globalSettings');
   try {
-    const snapshot = await getDoc(configRef);
-    if (snapshot.exists()) {
-      // Basic validation to ensure fetched data has the expected shape
+    const snapshot = await configRef.get();
+    if (snapshot.exists) {
       const parsed = ConfigSchema.partial().safeParse(snapshot.data());
       if (parsed.success) {
-        // Merge with default to ensure all keys are present
         return { ...defaultConfig, ...parsed.data };
       }
     }
@@ -42,9 +41,10 @@ export async function fetchConfig(): Promise<FirebaseConfig> {
 export async function saveConfig(
   config: FirebaseConfig
 ): Promise<{ success: boolean; message: string }> {
+  const configRef = adminDb.collection('config').doc('globalSettings');
   try {
     const validatedConfig = ConfigSchema.parse(config);
-    await setDoc(configRef, validatedConfig, { merge: true });
+    await configRef.set(validatedConfig, { merge: true });
     return { success: true, message: 'Configuration saved successfully!' };
   } catch (e) {
     console.error('Failed to save config:', e);

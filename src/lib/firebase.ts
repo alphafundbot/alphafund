@@ -17,16 +17,16 @@ let app: App;
 let db: Firestore;
 let functions: Functions;
 
-if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-} else {
-    app = getApp();
-}
-
-db = getFirestore(app);
-functions = getFunctions(app);
-
 if (typeof window !== 'undefined') {
+    if (getApps().length === 0) {
+        app = initializeApp(firebaseConfig);
+    } else {
+        app = getApp();
+    }
+
+    db = getFirestore(app);
+    functions = getFunctions(app);
+
     enableIndexedDbPersistence(db)
       .catch((err) => {
         if (err.code == 'failed-precondition') {
@@ -42,4 +42,5 @@ if (typeof window !== 'undefined') {
 }
 
 
+// @ts-ignore
 export { app, db, functions };

@@ -8,9 +8,11 @@ import { Loader2, Save, Settings } from 'lucide-react';
 
 import type { FirebaseConfig } from '@/lib/types';
 import { serviceConfig } from '@/lib/config';
-import { saveConfig } from '@/app/actions';
+import { saveConfig, fetchConfig } from '@/app/actions';
 import { ConfigCategoryCard } from './config-category-card';
 import { ConfigAuditor } from './config-auditor';
+import { runConfigAudit } from '@/app/actions.server';
+
 
 interface FirebaseConfigClientProps {
   initialConfig: FirebaseConfig;

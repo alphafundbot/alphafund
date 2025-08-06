@@ -1,13 +1,11 @@
 
-'use server';
+'use client';
 
-import { z } from 'zod';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { serviceConfig, defaultConfig } from '@/lib/config';
-import type { FirebaseConfig } from '@/lib/types';
-import { auditConfig, type AuditConfigOutput } from '@/ai/flows/config-auditor';
-import adminDb from '@/lib/firebase-admin';
-
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from '@/lib/firebase';
+import type { FirebaseConfig } from "@/lib/types";
+import { defaultConfig, serviceConfig } from "@/lib/config";
+import { z } from "zod";
 
 const ConfigSchema = z.object(
   Object.keys(serviceConfig).reduce((acc, category) => {
@@ -21,37 +19,31 @@ const ConfigSchema = z.object(
   }, {} as Record<string, z.ZodObject<any>>)
 );
 
-export async function fetchConfig(): Promise<FirebaseConfig> {
-  if (!adminDb) {
-    console.error("Firestore admin is not initialized. Check your environment variables.");
-    return defaultConfig;
-  }
-  const configRef = adminDb.collection('config').doc('globalSettings');
+
+export const fetchConfig = async (): Promise<FirebaseConfig> => {
   try {
-    const snapshot = await configRef.get();
-    if (snapshot.exists) {
-      const parsed = ConfigSchema.partial().safeParse(snapshot.data());
-      if (parsed.success) {
-        return { ...defaultConfig, ...parsed.data };
-      }
+    const docRef = doc(db, "config", "globalSettings");
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+        const parsed = ConfigSchema.partial().safeParse(snapshot.data());
+        if (parsed.success) {
+            return { ...defaultConfig, ...parsed.data };
+        }
     }
     return defaultConfig;
-  } catch (e) {
-    console.error('Failed to fetch config:', e);
+  } catch (err) {
+    console.error("Config fetch error:", err);
     return defaultConfig;
   }
-}
+};
 
 export async function saveConfig(
   config: FirebaseConfig
 ): Promise<{ success: boolean; message: string }> {
-   if (!adminDb) {
-    return { success: false, message: 'Firestore admin is not initialized.' };
-  }
-  const configRef = adminDb.collection('config').doc('globalSettings');
   try {
     const validatedConfig = ConfigSchema.parse(config);
-    await configRef.set(validatedConfig, { merge: true });
+    const docRef = doc(db, "config", "globalSettings");
+    await setDoc(docRef, validatedConfig, { merge: true });
     return { success: true, message: 'Configuration saved successfully!' };
   } catch (e) {
     console.error('Failed to save config:', e);
@@ -62,16 +54,15 @@ export async function saveConfig(
   }
 }
 
-export async function runConfigAudit(config: FirebaseConfig): Promise<{ error?: string, data?: AuditConfigOutput }> {
-    try {
-        const validatedConfig = ConfigSchema.parse(config);
-        const result = await auditConfig({ config: validatedConfig });
-        return { data: result };
-    } catch (e) {
-        console.error('Failed to run audit:', e);
-        if (e instanceof z.ZodError) {
-          return { error: 'Invalid configuration data provided to audit.' };
-        }
-        return { error: 'An error occurred during the audit.' };
-    }
-}
+export const demoSignalMap = () => ({
+  signal: {
+    cluster1: 0,
+    cluster2: 0,
+    throughput: [],
+    vaultStatus: "awaiting",
+    revenueAudit: {
+      total: "Demo",
+      activeFlow: "None",
+    },
+  },
+});

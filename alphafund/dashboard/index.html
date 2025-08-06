@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlphaFund Trading Platform</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1><i class="fas fa-chart-line"></i> AlphaFund</h1>
+      </div>
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="active"><a href="#dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+          <li><a href="#market"><i class="fas fa-chart-area"></i> Market Data</a></li>
+          <li><a href="#signals"><i class="fas fa-broadcast-tower"></i> Signals</a></li>
+          <li><a href="#strategies"><i class="fas fa-chess"></i> Strategies</a></li>
+          <li><a href="#predictions"><i class="fas fa-lightbulb"></i> Predictions</a></li>
+          <li><a href="#backtest"><i class="fas fa-vial"></i> Backtesting</a></li>
+        </ul>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <span>alphafundbot</span>
+        </div>
+        <div class="system-status online">
+          <i class="fas fa-circle"></i> System Online
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="toggle-sidebar">
+          <i class="fas fa-bars"></i>
+        </div>
+        <div class="search-bar">
+          <input type="text" placeholder="Search symbols...">
+          <i class="fas fa-search"></i>
+        </div>
+        <div class="top-bar-actions">
+          <button class="btn refresh-data"><i class="fas fa-sync-alt"></i> Refresh Data</button>
+          <div class="date-time">
+            <i class="far fa-clock"></i>
+            <span id="current-datetime">2025-08-05 12:25:45</span>
+          </div>
+          <div class="notifications">
+            <i class="far fa-bell"></i>
+            <span class="badge">3</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="content-section active">
+        <div class="section-header">
+          <h2>Trading Dashboard</h2>
+          <div class="market-status">
+            <span class="market-open"><i class="fas fa-circle"></i> Markets Open</span>
+            <span class="market-time">12:25 UTC</span>
+          </div>
+        </div>
+
+        <!-- Overview Cards -->
+        <div class="overview-cards">
+          <div class="card market-sentiment">
+            <div class="card-header">
+              <h3>Market Sentiment</h3>
+              <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="card-content">
+              <div class="sentiment-indicator" data-sentiment="bullish">
+                <div class="sentiment-meter">
+                  <div class="meter-bar"></div>
+                </div>
+                <div class="sentiment-label">Bullish</div>
+              </div>
+            </div>
+          </div>
+          <div class="card signal-count">
+            <div class="card-header">
+              <h3>Active Signals</h3>
+              <i class="fas fa-broadcast-tower"></i>
+            </div>
+            <div class="card-content">
+              <div class="big-number">24</div>
+              <div class="signal-types">
+                <span class="signal-type info">18 <i class="fas fa-info-circle"></i></span>
+                <span class="signal-type warning">4 <i class="fas fa-exclamation-triangle"></i></span>
+                <span class="signal-type error">2 <i class="fas fa-times-circle"></i></span>
+              </div>
+            </div>
+          </div>
+          <div class="card portfolio-value">
+            <div class="card-header">
+              <h3>Portfolio Value</h3>
+              <i class="fas fa-wallet"></i>
+            </div>
+            <div class="card-content">
+              <div class="big-number">$152,487.35</div>
+              <div class="change positive">
+                <i class="fas fa-arrow-up"></i> $3,241.20 (2.17%)
+              </div>
+            </div>
+          </div>
+          <div class="card top-performers">
+            <div class="card-header">
+              <h3>Top Performers</h3>
+              <i class="fas fa-trophy"></i>
+            </div>
+            <div class="card-content">
+              <ul class="performer-list">
+                <li>
+                  <span class="symbol">NVDA</span>
+                  <span class="price">$455.72</span>
+                  <span class="change positive">+5.3%</span>
+                </li>
+                <li>
+                  <span class="symbol">TSLA</span>
+                  <span class="price">$224.18</span>
+                  <span class="change positive">+3.7%</span>
+                </li>
+                <li>
+                  <span class="symbol">AAPL</span>
+                  <span class="price">$181.45</span>
+                  <span class="change positive">+1.2%</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Market Chart -->
+        <div class="content-row">
+          <div class="card market-chart">
+            <div class="card-header">
+              <h3>Market Performance</h3>
+              <div class="chart-controls">
+                <div class="symbol-selector">
+                  <select id="chart-symbol">
+                    <option value="AAPL">AAPL</option>
+                    <option value="MSFT">MSFT</option>
+                    <option value="GOOGL">GOOGL</option>
+                    <option value="AMZN">AMZN</option>
+                    <option value="META">META</option>
+                    <option value="NVDA" selected>NVDA</option>
+                    <option value="TSLA">TSLA</option>
+                  </select>
+                </div>
+                <div class="timeframe-selector">
+                  <button class="btn btn-sm active">1D</button>
+                  <button class="btn btn-sm">1W</button>
+                  <button class="btn btn-sm">1M</button>
+                  <button class="btn btn-sm">3M</button>
+                </div>
+              </div>
+            </div>
+            <div class="card-content">
+              <canvas id="price-chart" height="250"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Placeholder for other sections -->
+      <section id="market" class="content-section">
+        <h2>Market Data</h2>
+        <p>Market data content will be displayed here.</p>
+      </section>
+      
+      <section id="signals" class="content-section">
+        <h2>Signal Analysis</h2>
+        <p>Signal analysis content will be displayed here.</p>
+      </section>
+      
+      <section id="strategies" class="content-section">
+        <h2>Trading Strategies</h2>
+        <p>Trading strategies content will be displayed here.</p>
+      </section>
+      
+      <section id="predictions" class="content-section">
+        <h2>Price Predictions</h2>
+        <p>Price predictions content will be displayed here.</p>
+      </section>
+      
+      <section id="backtest" class="content-section">
+        <h2>Backtesting</h2>
+        <p>Backtesting content will be displayed here.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

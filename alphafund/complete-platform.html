@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlphaFund Financial Hub</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://js.stripe.com/v3/"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --secondary: #64748b;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #06b6d4;
+      --light: #f8fafc;
+      --dark: #0f172a;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f1f5f9;
+    }
+    
+    .navbar-brand {
+      font-weight: 600;
+    }
+    
+    .service-card {
+      transition: all 0.3s ease;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .service-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .logo {
+      max-height: 30px;
+      margin-right: 10px;
+    }
+    
+    .status-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    
+    .sidebar {
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      background-color: var(--dark);
+      color: white;
+      padding-top: 1rem;
+    }
+    
+    .sidebar .nav-link {
+      color: rgba(255,255,255,0.75);
+      padding: 0.5rem 1rem;
+      margin-bottom: 0.25rem;
+      border-radius: 0.375rem;
+    }
+    
+    .sidebar .nav-link:hover {
+      color: white;
+      background-color: rgba(255,255,255,0.1);
+    }
+    
+    .sidebar .nav-link.active {
+      color: white;
+      background-color: var(--primary);
+    }
+    
+    .sidebar .nav-link i {
+      margin-right: 0.5rem;
+      width: 1.25rem;
+      text-align: center;
+    }
+    
+    .account-pill {
+      display: inline-flex;
+      align-items: center;
+      background-color: rgba(255,255,255,0.1);
+      border-radius: 9999px;
+      padding: 0.25rem 0.75rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .account-pill:hover {
+      background-color: rgba(255,255,255,0.2);
+    }
+    
+    .account-pill img {
+      width: 20px;
+      height: 20px;
+      margin-right: 0.5rem;
+    }
+    
+    .vault-card {
+      border-radius: 1rem;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .vault-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      transform: translateY(-4px);
+    }
+    
+    .vault-header {
+      padding: 1.25rem;
+      color: white;
+      background-image: linear-gradient(135deg, #2563eb, #06b6d4);
+    }
+    
+    .investment-pool-card {
+      border: none;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      transition: all 0.3s ease;
+    }
+    
+    .investment-pool-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      transform: translateY(-4px);
+    }
+    
+    .pool-header {
+      padding: 1.25rem;
+      color: white;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+    }
+    
+    .pool-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+    }
+    
+    .pool-header * {
+      position: relative;
+    }
+    
+    .members-avatars {
+      display: flex;
+    }
+    
+    .members-avatars img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid white;
+      margin-left: -8px;
+    }
+    
+    .members-avatars img:first-child {
+      margin-left: 0;
+    }
+    
+    .asset-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 0.5rem;
+    }
+    
+    .connect-btn {
+      border-radius: 0.5rem;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .connect-btn i {
+      margin-right: 0.5rem;
+    }
+    
+    .platform-icon {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      margin-right: 0.5rem;
+    }
+    
+    .notification-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      font-size: 0.65rem;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    
+    .tabs-container {
+      overflow-x: auto;
+      white-space: nowrap;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    .tabs-container::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .oauth-buttons .btn {
+      margin-bottom: 10px;
+      text-align: left;
+      position: relative;
+      padding-left: 50px;
+      border: 1px solid #ddd;
+    }
+    
+    .oauth-buttons .btn img {
+      position: absolute;
+      left: 10px;
+      top: 7px;
+      width: 25px;
+      height: 25px;
+    }
+    
+    .connection-progress {
+      height: 6px;
+    }
+    
+    .asset-performance {
+      display: flex;
+      align-items: center;
+    }
+    
+    .asset-performance .trend-arrow {
+      margin-right: 0.25rem;
+    }
+    
+    .positive-trend {
+      color: var(--success);
+    }
+    
+    .negative-trend {
+      color: var(--danger);
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-left-color: currentColor;
+      border-radius: 50%;
+      animation: spinner 0.75s linear infinite;
+    }
+    
+    @keyframes spinner {
+      to {transform: rotate(360deg);}
+    }
+    
+    .chat-container {
+      height: 300px;
+      overflow-y: auto;
+    }
+    
+    .chat-message {
+      max-width: 80%;
+      margin-bottom: 1rem;
+      border-radius: 1rem;
+      padding: 0.75rem 1rem;
+    }
+    
+    .ai-message {
+      background-color: #f1f5f9;
+      border-top-left-radius: 0;
+      align-self: flex-start;
+    }
+    
+    .user-message {
+      background-color: #dbeafe;
+      border-top-right-radius: 0;
+      align-self: flex-end;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar -->
+      <div class="col-md-2 sidebar d-none d-md-block">
+        <div class="d-flex align-items-center mb-4 px-3">
+          <img src="https://cdn-icons-png.flaticon.com/512/6295/6295417.png" alt="AlphaFund" class="logo">
+          <h5 class="mb-0 text-white">AlphaFund</h5>
+        </div>
+        
+        <div class="nav flex-column mb-4 px-2">
+          <a href="#dashboard" onclick="showSection('dashboard')" class="nav-link active">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a href="#accounts" onclick="showSection('accounts')" class="nav-link">
+            <i class="bi bi-wallet2"></i> Accounts
+          </a>
+          <a href="#investments" onclick="showSection('investments')" class="nav-link">
+            <i class="bi bi-graph-up"></i> Investments
+          </a>
+          <a href="#ai-trading" onclick="showSection('ai-trading')" class="nav-link">
+            <i class="bi bi-cpu"></i> AI Trading
+          </a>
+          <a href="#vaults" onclick="showSection('vaults')" class="nav-link">
+            <i class="bi bi-safe"></i> Vaults
+          </a>
+          <a href="#pools" onclick="showSection('pools')" class="nav-link">
+            <i class="bi bi-people"></i> Group Pools
+          </a>
+          <a href="#connect" onclick="showSection('connect')" class="nav-link">
+            <i class="bi bi-link-45deg"></i> Connect
+          </a>
+        </div>
+        
+        <div class="px-3">
+          <h6 class="text-uppercase text-muted small mb-3">Connected Accounts</h6>
+          <div class="account-pill">
+            <img src="https://logo.clearbit.com/chase.com" alt="Chase">
+            <span class="small">Chase</span>
+          </div>
+          <div class="account-pill">
+            <img src="https://logo.clearbit.com/robinhood.com" alt="Robinhood">
+            <span class="small">Robinhood</span>
+          </div>
+          <div class="account-pill">
+            <img src="https://logo.clearbit.com/coinbase.com" alt="Coinbase">
+            <span class="small">Coinbase</span>
+          </div>
+        </div>
+        
+        <div class="mt-auto pt-4 px-3 small text-muted fixed-bottom mb-3 ms-2">
+          <div>AlphaFund Platform</div>
+          <div>Version 2.5.1</div>
+        </div>
+      </div>
+      
+      <!-- Mobile Header -->
+      <nav class="navbar navbar-dark bg-dark d-md-none">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="#">
+            <img src="https://cdn-icons-png.flaticon.com/512/6295/6295417.png" alt="AlphaFund" class="logo" style="max-height: 24px;">
+            AlphaFund
+          </a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a class="nav-link" href="#dashboard" onclick="showSection('dashboard')">Dashboard</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#accounts" onclick="showSection('accounts')">Accounts</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#investments" onclick="showSection('investments')">Investments</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#ai-trading" onclick="showSection('ai-trading')">AI Trading</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#vaults" onclick="showSection('vaults')">Vaults</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#pools" onclick="showSection('pools')">Group Pools</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#connect" onclick="showSection('connect')">Connect</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+      
+      <!-- Main Content -->
+      <div class="col-md-10 col-12 px-0">
+        <div class="d-flex flex-column min-vh-100">
+          <!-- Top Header -->
+          <header class="bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h4 id="section-title">Dashboard</h4>
+            <div class="d-flex align-items-center">
+              <div class="dropdown me-3">
+                <button class="btn btn-sm btn-light position-relative" type="button" data-bs-toggle="dropdown">
+                  <i class="bi bi-bell"></i>
+                  <span class="notification-badge bg-danger text-white">3</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end p-0" style="width: 300px;">
+                  <div class="p-2 border-bottom">
+                    <h6 class="mb-0">Notifications</h6>
+                  </div>
+                  <div class="p-2 border-bottom small">
+                    <div class="d-flex">
+                      <i class="bi bi-graph-up text-success me-2"></i>
+                      <div>
+                        <div class="fw-semibold">Investment Opportunity</div>
+                        <p class="mb-0 text-muted">New AI strategy available for Tesla</p>
+                        <small class="text-muted">2 minutes ago</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-2 border-bottom small">
+                    <div class="d-flex">
+                      <i class="bi bi-people text-primary me-2"></i>
+                      <div>
+                        <div class="fw-semibold">Pool Invitation</div>
+                        <p class="mb-0 text-muted">Sarah invited you to "Tech Stocks 2025"</p>
+                        <small class="text-muted">1 hour ago</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-2 border-bottom small">
+                    <div class="d-flex">
+                      <i class="bi bi-wallet2 text-warning me-2"></i>
+                      <div>
+                        <div class="fw-semibold">Account Update</div>
+                        <p class="mb-0 text-muted">Your Coinbase connection needs attention</p>
+                        <small class="text-muted">Yesterday</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-2 text-center">
+                    <a href="#" class="small text-decoration-none">View all notifications</a>
+                  </div>
+                </div>
+              </div>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-light d-flex align-items-center" type="button" data-bs-toggle="dropdown">
+                  <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;">A</div>
+                  <span>alphafundbot</span>
+                  <i class="bi bi-chevron-down ms-2"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i> Profile</a></li>
+                  <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i> Settings</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
+                </ul>
+              </div>
+            </div>
+          </header>
+          
+          <!-- Content Sections -->
+          <main class="flex-grow-1 py-4 px-md-4 px-3">
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="section-content">
+              <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                  <div class="card h-100 service-card">
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase text-muted mb-0">Total Balance</h6>
+                        <div class="rounded-circle bg-light p-2">
+                          <i class="bi bi-wallet2 text-primary"></i>
+                        </div>
+                      </div>
+                      <h4 class="mb-1">$152,384.28</h4>
+                      <div class="small positive-trend">
+                        <i class="bi bi-arrow-up trend-arrow"></i>
+                        +$3,241.56 (2.14%)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                  <div class="card h-100 service-card">
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase text-muted mb-0">AI Trading Gains</h6>
+                        <div class="rounded-circle bg-light p-2">
+                          <i class="bi bi-cpu text-success"></i>
+                        </div>
+                      </div>
+                      <h4 class="mb-1">$8,492.31</h4>
+                      <div class="small positive-trend">
+                        <i class="bi bi-arrow-up trend-arrow"></i>
+                        +$1,254.87 (17.3%)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                  <div class="card h-100 service-card">
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase text-muted mb-0">Vault Assets</h6>
+                        <div class="rounded-circle bg-light p-2">
+                          <i class="bi bi-safe text-info"></i>
+                        </div>
+                      </div>
+                      <h4 class="mb-1">$45,125.00</h4>
+                      <div class="small positive-trend">
+                        <i class="bi bi-arrow-up trend-arrow"></i>
+                        +$842.12 (1.9%)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                  <div class="card h-100 service-card">
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase text-muted mb-0">Group Pools</h6>
+                        <div class="rounded-circle bg-light p-2">
+                          <i class="bi bi-people text-warning"></i>
+                        </div>
+                      </div>
+                      <h4 class="mb-1">$28,764.15</h4>
+                      <div class="small negative-trend">
+                        <i class="bi bi-arrow-down trend-arrow"></i>
+                        -$421.35 (1.4%)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row mb-4">
+                <div class="col-lg-8 mb-4">
+                  <div class="card service-card h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                      <h5 class="mb-0">Portfolio Performance</h5>
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary active">1M</button>
+                        <button type="button" class="btn btn-outline-primary">3M</button>
+                        <button type="button" class="btn btn-outline-primary">6M</button>
+                        <button type="button" class="btn btn-outline-primary">1Y</button>
+                        <button type="button" class="btn btn-outline-primary">All</button>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      <canvas id="portfolioChart" height="250"></canvas>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4 mb-4">
+                  <div class="card service-card h-100">
+                    <div class="card-header bg-white">
+                      <h5 class="mb-0">Asset Allocation</h5>
+                    </div>
+                    <div class="card-body">
+                      <canvas id="allocationChart" height="250"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-lg-6 mb-4">
+                  <div class="card service-card h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                      <h5 class="mb-0">Top Performing Assets</h5>
+                      <button class="btn btn-sm btn-outline-primary">View All</button>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/nvidia.com" alt="NVDA" class="asset-icon">
+                            <div>
+                              <div class="fw-semibold">NVDA</div>
+                              <div class="small text-muted">Nvidia Corp</div>
+                            </div>
+                          </div>
+                          <div class="text-end">
+                            <div class="fw-semibold">$865.34</div>
+                            <div class="small positive-trend">+24.5%</div>
+                          </div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/bitcoin.org" alt="BTC" class="asset-icon">
+                            <div>
+                              <div class="fw-semibold">BTC</div>
+                              <div class="small text-muted">Bitcoin</div>
+                            </div>
+                          </div>
+                          <div class="text-end">
+                            <div class="fw-semibold">$72,450.12</div>
+                            <div class="small positive-trend">+18.7%</div>
+                          </div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/tsmc.com" alt="TSM" class="asset-icon">
+                            <div>
+                              <div class="fw-semibold">TSM</div>
+                              <div class="small text-muted">Taiwan Semiconductor</div>
+                            </div>
+                          </div>
+                          <div class="text-end">
+                            <div class="fw-semibold">$178.92</div>
+                            <div class="small positive-trend">+15.3%</div>
+                          </div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/microsoft.com" alt="MSFT" class="asset-icon">
+                            <div>
+                              <div class="fw-semibold">MSFT</div>
+                              <div class="small text-muted">Microsoft Corp</div>
+                            </div>
+                          </div>
+                          <div class="text-end">
+                            <div class="fw-semibold">$435.78</div>
+                            <div class="small positive-trend">+12.8%</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                  <div class="card service-card h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                      <h5 class="mb-0">Recent Transactions</h5>
+                      <button class="btn btn-sm btn-outline-primary">View All</button>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-success bg-opacity-10 p-2 me-3">
+                              <i class="bi bi-arrow-down text-success"></i>
+                            </div>
+                            <div>
+                              <div class="fw-semibold">AI Strategy Dividend</div>
+                              <div class="small text-muted">Aug 4, 2025</div>
+                            </div>
+                          </div>
+                          <div class="text-success fw-semibold">+$235.41</div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-2 me-3">
+                              <i class="bi bi-arrow-left-right text-primary"></i>
+                            </div>
+                            <div>
+                              <div class="fw-semibold">Transfer to Vault</div>
+                              <div class="small text-muted">Aug 3, 2025</div>
+                            </div>
+                          </div>
+                          <div class="text-danger fw-semibold">-$5,000.00</div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-warning bg-opacity-10 p-2 me-3">
+                              <i class="bi bi-people text-warning"></i>
+                            </div>
+                            <div>
+                              <div class="fw-semibold">Group Pool Contribution</div>
+                              <div class="small text-muted">Aug 1, 2025</div>
+                            </div>
+                          </div>
+                          <div class="text-danger fw-semibold">-$2,500.00</div>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-info bg-opacity-10 p-2 me-3">
+                              <i class="bi bi-bank text-info"></i>
+                            </div>
+                            <div>
+                              <div class="fw-semibold">Deposit from Chase</div>
+                              <div class="small text-muted">Jul 28, 2025</div>
+                            </div>
+                          </div>
+                          <div class="text-success fw-semibold">+$10,000.00</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            
+            <!-- Connect Section -->
+            <section id="connect-section" class="section-content d-none">
+              <div class="row mb-4">
+                <div class="col-12">
+                  <div class="card service-card">
+                    <div class="card-body">
+                      <h5 class="card-title mb-4">Connect External Accounts</h5>
+                      
+                      <div class="row">
+                        <div class="col-lg-4 mb-4">
+                          <div class="card h-100">
+                            <div class="card-header bg-white">
+                              <h5 class="mb-0">Banking</h5>
+                            </div>
+                            <div class="card-body">
+                              <div class="list-group">
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('chase')">
+                                  <img src="https://logo.clearbit.com/chase.com" alt="Chase" class="platform-icon">
+                                  <div>Chase Bank</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('bofa')">
+                                  <img src="https://logo.clearbit.com/bankofamerica.com" alt="Bank of America" class="platform-icon">
+                                  <div>Bank of America</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('wells')">
+                                  <img src="https://logo.clearbit.com/wellsfargo.com" alt="Wells Fargo" class="platform-icon">
+                                  <div>Wells Fargo</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('citi')">
+                                  <img src="https://logo.clearbit.com/citi.com" alt="Citibank" class="platform-icon">
+                                  <div>Citibank</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action text-center text-primary">
+                                  View all banking options
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="col-lg-4 mb-4">
+                          <div class="card h-100">
+                            <div class="card-header bg-white">
+                              <h5 class="mb-0">Investment Platforms</h5>
+                            </div>
+                            <div class="card-body">
+                              <div class="list-group">
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('robinhood')">
+                                  <img src="https://logo.clearbit.com/robinhood.com" alt="Robinhood" class="platform-icon">
+                                  <div>Robinhood</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('fidelity')">
+                                  <img src="https://logo.clearbit.com/fidelity.com" alt="Fidelity" class="platform-icon">
+                                  <div>Fidelity</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('vanguard')">
+                                  <img src="https://logo.clearbit.com/vanguard.com" alt="Vanguard" class="platform-icon">
+                                  <div>Vanguard</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('schwab')">
+                                  <img src="https://logo.clearbit.com/schwab.com" alt="Charles Schwab" class="platform-icon">
+                                  <div>Charles Schwab</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action text-center text-primary">
+                                  View all investment options
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div class="col-lg-4 mb-4">
+                          <div class="card h-100">
+                            <div class="card-header bg-white">
+                              <h5 class="mb-0">Crypto Wallets</h5>
+                            </div>
+                            <div class="card-body">
+                              <div class="list-group">
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="connectMetamask()">
+                                  <img src="https://logo.clearbit.com/metamask.io" alt="MetaMask" class="platform-icon">
+                                  <div>MetaMask</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('coinbase')">
+                                  <img src="https://logo.clearbit.com/coinbase.com" alt="Coinbase" class="platform-icon">
+                                  <div>Coinbase</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('binance')">
+                                  <img src="https://logo.clearbit.com/binance.com" alt="Binance" class="platform-icon">
+                                  <div>Binance</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="startConnection('kraken')">
+                                  <img src="https://logo.clearbit.com/kraken.com" alt="Kraken" class="platform-icon">
+                                  <div>Kraken</div>
+                                  <span class="ms-auto"><i class="bi bi-plus-circle"></i></span>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action text-center text-primary">
+                                  View all crypto options
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <div class="card service-card h-100">
+                    <div class="card-header bg-white">
+                      <h5 class="mb-0">Connection Status</h5>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="list-group list-group-flush">
+                        <div class="list-group-item">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center">
+                              <img src="https://logo.clearbit.com/chase.com" alt="Chase" class="platform-icon">
+                              <div>Chase Bank</div>
+                            </div>
+                            <span class="badge bg-success">Connected</span>
+                          </div>
+                          <div class="small text-muted mb-1">Last synced: 10 minutes ago</div>
+                          <div class="d-flex justify-content-between small">
+                            <span>2 accounts</span>
+                            <a href="#" class="text-decoration-none">Refresh</a>
+                          </div>
+                        </div>
+                        <div class="list-group-item">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center">
+                              <img src="https://logo.clearbit.com/robinhood.com" alt="Robinhood" class="platform-icon">
+                              <div>Robinhood</div>
+                            </div>
+                            <span class="badge bg-success">Connected</span>
+                          </div>
+                          <div class="small text-muted mb-1">Last synced: 1 hour ago</div>
+                          <div class="d-flex justify-content-between small">
+                            <span>1 account</span>
+                            <a href="#" class="text-decoration-none">Refresh</a>
+                          </div>
+                        </div>
+                        <div class="list-group-item">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center">
+                              <img src="https://logo.clearbit.com/coinbase.com" alt="Coinbase" class="platform-icon">
+                              <div>Coinbase</div>
+                            </div>
+                            <span class="badge bg-warning">Update Required</span>
+                          </div>
+                          <div class="small text-muted mb-1">Last synced: 3 days ago</div>
+                          <div class="d-flex justify-content-between small">
+                            <span>1 account</span>
+                            <a href="#" class="text-decoration-none">Update Connection</a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                  <div class="card service-card h-100">
+                    <div class="card-header bg-white">
+                      <h5 class="mb-0">Connection Security</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="mb-4">
+                        <h6>How We Keep Your Data Secure</h6>
+                        <ul class="small text-muted">
+                          <li>All connections use OAuth 2.0 or similar secure authorization protocols</li>
+                          <li>We never store your login credentials</li>
+                          <li>Bank-level 256-bit encryption protects all your data</li>
+                          <li>You can revoke access at any time</li>
+                        </ul>
+                      </div>
+                      <div class="mb-4">
+                        <h6>Connection Permissions</h6>
+                        <div class="small text-muted mb-2">
+                          When connecting accounts, you grant AlphaFund permission to:
+                        </div>
+                        <ul class="small text-muted">
+                          <li>View account balances and transaction history</li>
+                          <li>See investment holdings and performance</li>
+                          <li>Initiate transfers between your connected accounts (with your approval)</li>
+                        </ul>
+                      </div>
+                      <div class="d-grid">
+                        <button class="btn btn-outline-primary">View Security Policy</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            
+            <!-- Other Sections (removed for brevity) -->
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Connection Modal -->
+  <div class="modal fade" id="connectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="connectionModalTitle">Connect Account</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="connection-step-1">
+            <div class="text-center mb-4">
+              <img id="connection-logo" src="" alt="Provider Logo" style="width: 64px; height: 64px;">
+              <h5 class="mt-3" id="connection-provider-name">Provider</h5>
+              <p class="text-muted">Connect your account to access your data securely</p>
+            </div>
+            
+            <div class="oauth-buttons">
+              <button class="btn btn-lg btn-light w-100" id="connection-button">
+                <img id="connection-button-logo" src="" alt="Provider Logo">
+                Continue with <span id="connection-button-name">Provider</span>
+              </button>
+            </div>
+            
+            <div class="small text-muted mt-4">
+              By connecting your account, you acknowledge that you have read and agree to our 
+              <a href="#" target="_blank">Terms of Service</a> and 
+              <a href="#" target="_blank">Privacy Policy</a>.
+            </div>
+          </div>
+          
+          <div id="connection-step-2" style="display: none;">
+            <div class="text-center mb-4">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <h5>Connecting to <span id="connection-loading-name">Provider</span></h5>
+              <p class="text-muted">Please complete authentication in the popup window.</p>
+              <div class="progress connection-progress mt-3">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div id="connection-step-3" style="display: none;">
+            <div class="text-center mb-4">
+              <div class="rounded-circle bg-success d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                <i class="bi bi-check-lg text-white fs-1"></i>
+              </div>
+              <h5>Successfully Connected!</h5>
+              <p class="text-muted">Your <span id="connection-success-name">Provider</span> account has been connected to AlphaFund.</p>
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-primary" data-bs-dismiss="modal">Continue to Dashboard</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Show different sections
+    function showSection(sectionName) {
+      // Update section title
+      document.getElementById('section-title').textContent = sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+      
+      // Hide all sections
+      document.querySelectorAll('.section-content').forEach(section => {
+        section.classList.add('d-none');
+      });
+      
+      // Show selected section
+      document.getElementById(sectionName + '-section').classList.remove('d-none');
+      
+      // Update active nav link
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+      });
+      
+      // Find and activate the correct nav link
+      document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.getAttribute('href') === '#' + sectionName) {
+          link.classList.add('active');
+        }
+      });
+      
+      // If on mobile, collapse the navbar after selection
+      const navbar = document.getElementById('navbarNav');
+      if (navbar && navbar.classList.contains('show')) {
+        bootstrap.Collapse.getInstance(navbar).hide();
+      }
+      
+      // Initialize charts if we're on the dashboard section
+      if (sectionName === 'dashboard') {
+        initCharts();
+      }
+    }
+    
+    // Initialize charts
+    function initCharts() {
+      // Portfolio Performance Chart
+      const portfolioCtx = document.getElementById('portfolioChart');
+      if (portfolioCtx && !portfolioCtx.chart) {
+        portfolioCtx.chart = new Chart(portfolioCtx, {
+          type: 'line',
+          data: {
+            labels: ['Jul 5', 'Jul 10', 'Jul 15', 'Jul 20', 'Jul 25', 'Jul 30', 'Aug 5'],
+            datasets: [{
+              label: 'Portfolio Value',
+              data: [145000, 147500, 146800, 148900, 151200, 149500, 152384],
+              borderColor: '#2563eb',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false
+              }
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: false
+                }
+              },
+              y: {
+                grid: {
+                  borderDash: [2],
+                  color: 'rgba(0, 0, 0, 0.05)'
+                },
+                ticks: {
+                  callback: function(value) {
+                    return '$' + value.toLocaleString();
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Asset Allocation Chart
+      const allocationCtx = document.getElementById('allocationChart');
+      if (allocationCtx && !allocationCtx.chart) {
+        allocationCtx.chart = new Chart(allocationCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Stocks', 'Crypto', 'ETFs', 'Cash', 'Other'],
+            datasets: [{
+              data: [45, 20, 25, 8, 2],
+              backgroundColor: [
+                '#2563eb',
+                '#f59e0b',
+                '#10b981',
+                '#64748b',
+                '#8b5cf6'
+              ],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  padding: 20,
+                  usePointStyle: true,
+                  pointStyle: 'circle'
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.raw || 0;
+                    return `${label}: ${value}%`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    // Account connection handling
+    function startConnection(provider) {
+      // Define provider info
+      const providers = {
+        chase: {
+          name: 'Chase Bank',
+          logo: 'https://logo.clearbit.com/chase.com'
+        },
+        bofa: {
+          name: 'Bank of America',
+          logo: 'https://logo.clearbit.com/bankofamerica.com'
+        },
+        wells: {
+          name: 'Wells Fargo',
+          logo: 'https://logo.clearbit.com/wellsfargo.com'
+        },
+        citi: {
+          name: 'Citibank',
+          logo: 'https://logo.clearbit.com/citi.com'
+        },
+        robinhood: {
+          name: 'Robinhood',
+          logo: 'https://logo.clearbit.com/robinhood.com'
+        },
+        fidelity: {
+          name: 'Fidelity',
+          logo: 'https://logo.clearbit.com/fidelity.com'
+        },
+        vanguard: {
+          name: 'Vanguard',
+          logo: 'https://logo.clearbit.com/vanguard.com'
+        },
+        schwab: {
+          name: 'Charles Schwab',
+          logo: 'https://logo.clearbit.com/schwab.com'
+        },
+        coinbase: {
+          name: 'Coinbase',
+          logo: 'https://logo.clearbit.com/coinbase.com'
+        },
+        binance: {
+          name: 'Binance',
+          logo: 'https://logo.clearbit.com/binance.com'
+        },
+        kraken: {
+          name: 'Kraken',
+          logo: 'https://logo.clearbit.com/kraken.com'
+        }
+      };
+      
+      const providerInfo = providers[provider];
+      
+      // Update modal content with provider info
+      document.getElementById('connectionModalTitle').textContent = `Connect ${providerInfo.name}`;
+      document.getElementById('connection-logo').src = providerInfo.logo;
+      document.getElementById('connection-provider-name').textContent = providerInfo.name;
+      document.getElementById('connection-button-logo').src = providerInfo.logo;
+      document.getElementById('connection-button-name').textContent = providerInfo.name;
+      document.getElementById('connection-loading-name').textContent = providerInfo.name;
+      document.getElementById('connection-success-name').textContent = providerInfo.name;
+      
+      // Show step 1
+      document.getElementById('connection-step-1').style.display = 'block';
+      document.getElementById('connection-step-2').style.display = 'none';
+      document.getElementById('connection-step-3').style.display = 'none';
+      
+      // Show the modal
+      const connectionModal = new bootstrap.Modal(document.getElementById('connectionModal'));
+      connectionModal.show();
+      
+      // Set up connection button
+      document.getElementById('connection-button').onclick = function() {
+        // Show loading step
+        document.getElementById('connection-step-1').style.display = 'none';
+        document.getElementById('connection-step-2').style.display = 'block';
+        
+        // Simulate the connection process (in a real app, this would open OAuth flow)
+        setTimeout(() => {
+          // Show success step
+          document.getElementById('connection-step-2').style.display = 'none';
+          document.getElementById('connection-step-3').style.display = 'block';
+        }, 3000);
+      };
+    }
+    
+    // Connect MetaMask
+    function connectMetamask() {
+      if (typeof window.ethereum === 'undefined') {
+        alert('MetaMask is not installed. Please install MetaMask to connect your wallet.');
+        window.open('https://metamask.io/download/', '_blank');
+        return;
+      }
+      
+      // Set provider info
+      const providerInfo = {
+        name: 'MetaMask',
+        logo: 'https://logo.clearbit.com/metamask.io'
+      };
+      
+      // Update modal content
+      document.getElementById('connectionModalTitle').textContent = `Connect ${providerInfo.name}`;
+      document.getElementById('connection-logo').src = providerInfo.logo;
+      document.getElementById('connection-provider-name').textContent = providerInfo.name;
+      document.getElementById('connection-button-logo').src = providerInfo.logo;
+      document.getElementById('connection-button-name').textContent = providerInfo.name;
+      document.getElementById('connection-loading-name').textContent = providerInfo.name;
+      document.getElementById('connection-success-name').textContent = providerInfo.name;
+      
+      // Show step 1
+      document.getElementById('connection-step-1').style.display = 'block';
+      document.getElementById('connection-step-2').style.display = 'none';
+      document.getElementById('connection-step-3').style.display = 'none';
+      
+      // Show the modal
+      const connectionModal = new bootstrap.Modal(document.getElementById('connectionModal'));
+      connectionModal.show();
+      
+      // Set up connection button
+      document.getElementById('connection-button').onclick = async function() {
+        // Show loading step
+        document.getElementById('connection-step-1').style.display = 'none';
+        document.getElementById('connection-step-2').style.display = 'block';
+        
+        try {
+          // Request account access
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          
+          // Show success step
+          document.getElementById('connection-step-2').style.display = 'none';
+          document.getElementById('connection-step-3').style.display = 'block';
+        } catch (error) {
+          alert('Failed to connect to MetaMask: ' + error.message);
+          connectionModal.hide();
+        }
+      };
+    }
+    
+    // Initialize dashboard on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      showSection('dashboard');
+      initCharts();
+    });
+  </script>
+</body>
+</html>

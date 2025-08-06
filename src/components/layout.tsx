@@ -8,22 +8,23 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarInset,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { Header } from '@/components/header';
-import { LayoutDashboard, Settings, User, Rocket } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { Rocket, ChevronDown } from 'lucide-react';
+import { navConfig } from '@/lib/nav-config';
 import { cn } from '@/lib/utils';
 
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/profile', label: 'Profile', icon: User },
-];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -41,7 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {navItems.map((item) => (
+            {navConfig.topNav.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                     asChild
@@ -55,6 +56,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+            
+            {navConfig.clusters.map((cluster) => (
+              <Collapsible key={cluster.title} className="w-full">
+                <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-start gap-2 px-2">
+                         <cluster.icon className="h-5 w-5" />
+                         <span className="flex-grow text-left">{cluster.title}</span>
+                         <ChevronDown className="h-4 w-4 shrink-0" />
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                        {cluster.modules.map((mod) => (
+                             <SidebarMenuItem key={mod.href}>
+                                <SidebarMenuSubButton asChild isActive={pathname === mod.href}>
+                                    <Link href={mod.href}>{mod.title}</Link>
+
+                                </SidebarMenuSubButton>
+                             </SidebarMenuItem>
+                        ))}
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+
           </SidebarMenu>
         </SidebarContent>
       </Sidebar>

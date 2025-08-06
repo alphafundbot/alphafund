@@ -17,8 +17,8 @@ const systemStatus = {
     governance: false,
     planetary: false
   },
-  "credentialStatus": "notInjected",
-  "lastAudit": "2025-08-06T08:53:00Z"
+  credentialStatus: "notInjected",
+  lastAudit: "2025-08-06T08:53:00Z"
 };
 
 const StrategistDashboard = () => {
@@ -68,7 +68,7 @@ const StrategistDashboard = () => {
 
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatusCard title="Access" status={systemStatus.access} icon={ShieldAlert} />
-        <StatusCard title="Credential Status" status={systemStatus.credentialStatus} icon={ShieldAlert} />
+        <VaultSimCard status={systemStatus.credentialStatus} />
         <StatusCard title="Last Audit" status={new Date(systemStatus.lastAudit).toLocaleDateString()} icon={Clock} />
         <ModuleStatusCard modules={systemStatus.modules} />
       </div>
@@ -93,6 +93,32 @@ const Card = ({ title, value }: { title: string; value: any }) => (
         </CardContent>
     </ShadCard>
 );
+
+const VaultSimCard = ({ status }: { status: string }) => {
+    const colorMap: { [key: string]: string } = {
+        injected: "bg-green-600",
+        notInjected: "bg-yellow-400",
+        error: "bg-red-600",
+    };
+
+    const statusTextMap: { [key: string]: string } = {
+        injected: "Injected",
+        notInjected: "Not Injected",
+        error: "Error",
+    }
+
+    return (
+        <ShadCard className={`text-white ${colorMap[status] || 'bg-gray-500'}`}>
+            <CardHeader>
+                <CardTitle className="text-sm text-white/80 font-medium">Credential Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-2xl font-semibold">{statusTextMap[status] || 'Unknown'}</p>
+            </CardContent>
+        </ShadCard>
+    );
+};
+
 
 const StatusCard = ({ title, status, icon: Icon }: { title: string; status: string; icon: React.ElementType }) => (
     <ShadCard>

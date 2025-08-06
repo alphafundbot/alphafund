@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp, type App } from 'firebase/app';
-import { getFirestore, type Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore, type Firestore, enableIndexedDbPersistence, setLogLevel } from 'firebase/firestore';
 import { getFunctions, type Functions } from 'firebase/functions';
 
 const firebaseConfig = {
@@ -26,6 +26,9 @@ if (typeof window !== 'undefined') {
 
     db = getFirestore(app);
     functions = getFunctions(app);
+
+    // Enable debug logging
+    setLogLevel("debug");
 
     enableIndexedDbPersistence(db)
       .catch((err) => {

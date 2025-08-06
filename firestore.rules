@@ -2,15 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // For this demo, we allow reads and writes to the 'config' collection.
-    // In a production app, you should lock this down.
-    match /config/{docId} {
-      allow read, write: if true; 
-    }
-
-    // By default, deny access to all other documents.
+    // Allow read and write access to all documents
+    // for authenticated users.
+    // TODO: Secure your data further for production applications.
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
   }
 }

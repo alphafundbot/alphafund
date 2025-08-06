@@ -61,12 +61,14 @@ const StrategistDashboard = () => {
     );
   }
 
+  const revenueTotal = signal.revenueAudit?.total ?? 'Demo';
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card title="Nodes Online" value={signal.cluster1} />
         <Card title="Vault Status" value={signal.vaultStatus} />
-        <Card title="Revenue Audit" value={signal.revenueAudit.total} />
+        <Card title="Revenue Audit" value={revenueTotal} />
         <StatusCard title="Mesh Entropy" status={systemStatus.meshEntropy} icon={GanttChart} />
       </div>
 

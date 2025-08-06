@@ -1,15 +1,15 @@
+
 import { navConfig } from "@/lib/nav-config"
 import { notFound } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 export async function generateStaticParams() {
-    const slugs = navConfig.clusters.flatMap(c => c.modules.map(m => m.slug));
-    return slugs.map(slug => ({ slug }));
+    return navConfig.clusters.flatMap(c => c.modules.map(m => ({ slug: m.slug })));
 }
 
 export default function ModulePage({ params }: { params: { slug: string } }) {
     const module = navConfig.clusters.flatMap(c => c.modules).find(m => m.slug === params.slug);
-    const cluster = navConfig.clusters.find(c => c.modules.some(m => m.slug === params.slug));
+    const cluster = nav.config.clusters.find(c => c.modules.some(m => m.slug === params.slug));
 
     if (!module || !cluster) {
         notFound();

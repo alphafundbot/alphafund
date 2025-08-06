@@ -21,6 +21,10 @@ const ConfigSchema = z.object(
 
 
 export const fetchConfig = async (): Promise<FirebaseConfig> => {
+  if (!db) {
+    console.error("Firestore is not initialized.");
+    return defaultConfig;
+  }
   try {
     const docRef = doc(db, "config", "globalSettings");
     const snapshot = await getDoc(docRef);
@@ -69,17 +73,15 @@ export async function saveConfig(
 }
 
 export const demoSignalMap = () => ({
-  signal: {
-    cluster1: 0,
-    cluster2: 0,
-    throughput: [],
-    vaultStatus: "awaiting",
-    revenueAudit: {
-      total: "Demo",
-      activeFlow: "None",
-    },
-    firestoreSignalRouting: true,
-    aiFunctionHooks: true,
-    strategistMemoryEnabled: true,
+  cluster1: 0,
+  cluster2: 0,
+  throughput: [],
+  vaultStatus: "awaiting",
+  revenueAudit: {
+    total: "Demo",
+    activeFlow: "None",
   },
+  firestoreSignalRouting: true,
+  aiFunctionHooks: true,
+  strategistMemoryEnabled: true,
 });

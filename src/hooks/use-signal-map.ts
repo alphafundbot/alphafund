@@ -2,21 +2,28 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { fetchConfig, demoSignalMap } from "@/app/actions";
+import { fetchConfig } from "@/app/actions";
 import type { FirebaseConfig } from "@/lib/types";
+import { defaultConfig } from "@/lib/config";
 
-// A simplified type for the signal portion of the config for the hook's state
 type SignalMap = FirebaseConfig['signal'];
 
 export const useSignalMap = () => {
-  const [signalMap, setSignalMap] = useState<SignalMap>(demoSignalMap().signal);
+  const [signalMap, setSignalMap] = useState<SignalMap>(defaultConfig.signal);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const refresh = async () => {
-      const config = await fetchConfig();
-      // Ensure we have a valid object, falling back to the demo signal map
-      const newSignalMap = config?.signal ?? demoSignalMap().signal;
-      setSignalMap(newSignalMap);
+      try {
+        const config = await fetchConfig();
+        const newSignalMap = config?.signal ?? defaultConfig.signal;
+        setSignalMap(newSignalMap);
+      } catch (error) {
+        console.error("Failed to fetch signal map:", error);
+        setSignalMap(defaultConfig.signal);
+      } finally {
+        setLoading(false);
+      }
     };
     
     refresh();
@@ -25,5 +32,5 @@ export const useSignalMap = () => {
     return () => clearInterval(interval);
   }, []);
 
-  return signalMap;
+  return { signal: signalMap, loading };
 };

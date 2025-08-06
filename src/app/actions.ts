@@ -25,9 +25,23 @@ export const fetchConfig = async (): Promise<FirebaseConfig> => {
     const docRef = doc(db, "config", "globalSettings");
     const snapshot = await getDoc(docRef);
     if (snapshot.exists()) {
-        const parsed = ConfigSchema.partial().safeParse(snapshot.data());
+        const parsed = ConfigSchema.deepPartial().safeParse(snapshot.data());
         if (parsed.success) {
-            return { ...defaultConfig, ...parsed.data };
+            // Deep merge fetched data with default config to ensure all keys are present
+            const merge = (defaultObj: any, newObj: any): any => {
+                const result = { ...defaultObj };
+                for (const key in newObj) {
+                    if (Object.prototype.hasOwnProperty.call(newObj, key)) {
+                        if (typeof newObj[key] === 'object' && newObj[key] !== null && !Array.isArray(newObj[key]) && defaultObj[key]) {
+                            result[key] = merge(defaultObj[key], newObj[key]);
+                        } else {
+                            result[key] = newObj[key];
+                        }
+                    }
+                }
+                return result;
+            }
+            return merge(defaultConfig, parsed.data);
         }
     }
     return defaultConfig;
@@ -64,5 +78,8 @@ export const demoSignalMap = () => ({
       total: "Demo",
       activeFlow: "None",
     },
+    firestoreSignalRouting: true,
+    aiFunctionHooks: true,
+    strategistMemoryEnabled: true,
   },
 });

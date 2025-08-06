@@ -1,0 +1,17 @@
+
+import { Rocket } from 'lucide-react';
+
+export function Header() {
+  return (
+    <header className="border-b">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2">
+          <Rocket className="h-7 w-7 text-primary" />
+          <h1 className="text-xl font-bold font-headline tracking-tight text-foreground">
+            Firebase Pilot
+          </h1>
+        </div>
+      </div>
+    </header>
+  );
+}

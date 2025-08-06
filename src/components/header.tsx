@@ -1,4 +1,3 @@
-
 import { Rocket } from 'lucide-react';
 import { SidebarTrigger } from './ui/sidebar';
 

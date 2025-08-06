@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -33,5 +32,27 @@ export async function runConfigAudit(config: FirebaseConfig): Promise<{ error?: 
           return { error: 'Invalid configuration data provided to audit.' };
         }
         return { error: 'An error occurred during the audit.' };
+    }
+}
+
+export async function pulseVault(): Promise<{ status: string, reason?: string }> {
+    if (!adminDb) {
+        return { status: 'error', reason: 'db-not-initialized' };
+    }
+    const docRef = adminDb.doc("vault/config");
+    
+    try {
+        const snapshot = await docRef.get();
+        const config = snapshot.data();
+
+        if (config?.credentialStatus !== "injected") {
+            return { status: "vault-blocked", reason: "credentialsMissing" };
+        }
+
+        await docRef.update({ meshEntropy: "synced" });
+        return { status: "vault-pulsed" };
+    } catch (error) {
+        console.error("Error pulsing vault:", error);
+        return { status: "error", reason: "unknown" };
     }
 }

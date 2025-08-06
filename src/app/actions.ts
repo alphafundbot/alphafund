@@ -22,6 +22,10 @@ const ConfigSchema = z.object(
 );
 
 export async function fetchConfig(): Promise<FirebaseConfig> {
+  if (!adminDb) {
+    console.error("Firestore admin is not initialized. Check your environment variables.");
+    return defaultConfig;
+  }
   const configRef = adminDb.collection('config').doc('globalSettings');
   try {
     const snapshot = await configRef.get();
@@ -41,6 +45,9 @@ export async function fetchConfig(): Promise<FirebaseConfig> {
 export async function saveConfig(
   config: FirebaseConfig
 ): Promise<{ success: boolean; message: string }> {
+   if (!adminDb) {
+    return { success: false, message: 'Firestore admin is not initialized.' };
+  }
   const configRef = adminDb.collection('config').doc('globalSettings');
   try {
     const validatedConfig = ConfigSchema.parse(config);

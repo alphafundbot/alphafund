@@ -26,33 +26,37 @@ const StrategistDashboard = () => {
 
   if (loading) {
     return (
-      <div className="grid gap-6 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {[...Array(8)].map((_, i) => (
-          <ShadCard key={i}>
-            <CardHeader>
-              <Skeleton className="h-4 w-2/3" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-1/2" />
-            </CardContent>
-          </ShadCard>
-        ))}
-        <ShadCard className="col-span-1 sm:col-span-2 lg:col-span-3">
-          <CardHeader>
-            <Skeleton className="h-4 w-1/4" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-48 w-full" />
-          </CardContent>
-        </ShadCard>
-        <ShadCard className="col-span-1 sm:col-span-2 lg:col-span-4">
-          <CardHeader>
-            <Skeleton className="h-4 w-1/4" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-24 w-full" />
-          </CardContent>
-        </ShadCard>
+      <div className="flex flex-col gap-6">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(8)].map((_, i) => (
+            <ShadCard key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-2/3" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-1/2" />
+              </CardContent>
+            </ShadCard>
+          ))}
+        </div>
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+            <ShadCard className="lg:col-span-1">
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-48 w-full" />
+              </CardContent>
+            </ShadCard>
+            <ShadCard className="lg:col-span-2">
+              <CardHeader>
+                <Skeleton className="h-6 w-1/4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-48 w-full" />
+              </CardContent>
+            </ShadCard>
+        </div>
       </div>
     );
   }

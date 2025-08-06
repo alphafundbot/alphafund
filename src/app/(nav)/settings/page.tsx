@@ -7,6 +7,7 @@ import { FirebaseConfigClient } from '@/components/firebase-config-client';
 import type { FirebaseConfig } from '@/lib/types';
 import { defaultConfig } from '@/lib/config';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Settings } from 'lucide-react';
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<FirebaseConfig | null>(null);
@@ -14,6 +15,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadConfig = async () => {
+      setLoading(true);
       try {
         const fetchedConfig = await fetchConfig();
         setConfig(fetchedConfig);
@@ -33,7 +35,7 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <Skeleton className="h-8 w-8" />
+                    <Settings className="h-8 w-8 text-muted-foreground" />
                     <div>
                         <Skeleton className="h-8 w-64 mb-2" />
                         <Skeleton className="h-4 w-96" />
@@ -43,7 +45,7 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className="p-6 border rounded-lg">
+                    <div key={i} className="p-6 border rounded-lg bg-card">
                         <Skeleton className="h-8 w-48 mb-4" />
                         <Skeleton className="h-4 w-full mb-6" />
                         <div className="space-y-4">

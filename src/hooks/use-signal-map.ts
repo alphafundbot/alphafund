@@ -14,6 +14,7 @@ export const useSignalMap = () => {
 
   useEffect(() => {
     const refresh = async () => {
+      setLoading(true);
       try {
         const config = await fetchConfig();
         const newSignalMap = config?.signal ?? defaultConfig.signal;

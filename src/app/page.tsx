@@ -18,7 +18,8 @@ const systemStatus = {
     planetary: false
   },
   credentialStatus: "notInjected",
-  lastAudit: "2025-08-06T08:53:00Z"
+  lastAudit: "2025-08-06T08:53:00Z",
+  total: 0
 };
 
 const StrategistDashboard = () => {
@@ -61,7 +62,7 @@ const StrategistDashboard = () => {
     );
   }
 
-  const revenueTotal = signal.revenueAudit?.total ?? 'Demo';
+  const revenueTotal = signal.revenueAudit?.total ?? systemStatus.total;
 
   return (
     <div className="flex flex-col gap-6">

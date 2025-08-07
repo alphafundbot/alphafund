@@ -1,26 +1,10 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 const app = express();
 
-app.listen(6001, '127.0.0.1', () => {
-  console.log('Vault relay listening on localhost:6001');
-});
-import express from 'express';
-const app = express();
-
-app.listen(6001, '127.0.0.1', () => {
-  console.log('Vault relay listening on localhost:6001');
+app.get('/', (_: Request, res: Response) => {
+  res.send('Vault server is alive');
 });
 
-import express from 'express';
-const app = express();
-
-app.listen(6001, '127.0.0.1', () => {
-  console.log('Vault relay listening on localhost:6001');
-});
-
-import express from 'express';
-const app = express();
-
-app.listen(6001, '127.0.0.1', () => {
-  console.log('Vault relay listening on localhost:6001');
+app.listen(3001, () => {
+  console.log('Vault server running on port 3001');
 });

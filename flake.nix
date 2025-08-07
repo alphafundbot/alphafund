@@ -1,4 +1,3 @@
-nix
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs";
@@ -7,10 +6,7 @@ nix
   outputs = { self, nixpkgs }: {
     overlays = [
       (self: super: {
-        previewserver = super.previewserver.override {
-          port = 9101;
-          host = "127.0.0.1";
-        };
+        previewserver = super.callPackage ./previewserver.nix {};
       })
     ];
 

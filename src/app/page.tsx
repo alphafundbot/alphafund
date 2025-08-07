@@ -35,7 +35,7 @@ const StrategistDashboard = () => {
     return (
       <div className="flex flex-col gap-6">
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(8)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <ShadCard key={i}>
               <CardHeader>
                 <Skeleton className="h-6 w-2/3" />
@@ -45,6 +45,39 @@ const StrategistDashboard = () => {
               </CardContent>
             </ShadCard>
           ))}
+        </div>
+         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+             <ShadCard>
+                <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-4 pt-4">
+                        {[...Array(4)].map((_, i) => (
+                             <div key={i} className="flex items-center gap-2">
+                                <Skeleton className="h-5 w-5 rounded-full" />
+                                <Skeleton className="h-4 w-20" />
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+             </ShadCard>
+             <ShadCard>
+                <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                </CardHeader>
+                 <CardContent>
+                    <Skeleton className="h-8 w-1/2" />
+                </CardContent>
+            </ShadCard>
+             <ShadCard>
+                <CardHeader>
+                     <Skeleton className="h-6 w-3/4" />
+                </CardHeader>
+                 <CardContent>
+                     <Skeleton className="h-8 w-1/2" />
+                </CardContent>
+            </ShadCard>
         </div>
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
             <ShadCard className="lg:col-span-1">
@@ -70,22 +103,22 @@ const StrategistDashboard = () => {
 
   return (
     <div className="flex flex-col gap-6">
- <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
- <Card title="Nodes Online" value={status.nodesOnline} />
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card title="Nodes Online" value={status.nodesOnline} />
         <Card title="Revenue Audit" value={status.revenueTotal} />
         <StatusCard title="Mesh Entropy" status={status.meshEntropy} icon={GanttChart} />
         <StatusCard title="Access" status={status.access} icon={ShieldAlert} />
       </div>
 
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <ModuleStatusCard modules={status.modules} />
         <VaultStatusCard status={status.credentialStatus} onPulse={handlePulseVault} />
         <StatusCard title="Last Audit" status={new Date(status.lastAudit).toLocaleDateString()} icon={Clock} />
-        <ModuleStatusCard modules={status.modules} />
       </div>
       
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Chart title="Signal Throughput" />
- <div className="lg:col-span-2">
+        <div className="lg:col-span-2">
             <Console title="Memory Feed" feed={[]} />
         </div>
       </div>
@@ -125,10 +158,11 @@ const VaultStatusCard = ({ status, onPulse }: { status: string; onPulse: () => v
             <CardContent className="flex-grow">
                 <p className="text-2xl font-semibold">{statusTextMap[status] || 'Unknown'}</p>
             </CardContent>
- <CardFooter className="p-0">
- <button className="flex items-center justify-center w-full text-white/80 hover:bg-white/20 hover:text-white py-3" onClick={onPulse}>
+            <CardFooter>
+                <button className="flex items-center justify-center w-full text-white/80 hover:bg-white/20 hover:text-white py-3 -m-6" onClick={onPulse}>
+                    <Zap className="mr-2 h-4 w-4" />
                     Pulse Vault
- </button>
+                </button>
             </CardFooter>
         </ShadCard>
     );

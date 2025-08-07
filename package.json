@@ -70,5 +70,14 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5"
-  }
+  },
+  "description": "This is a Next.js application built with Firebase Studio that allows you to manage and audit your Firebase project configurations.",
+  "main": "next.config.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

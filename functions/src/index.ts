@@ -1,19 +1,28 @@
+
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
+const db = admin.firestore();
 
-export const pulseVault = functions.https.onRequest((req, res) => {
-  const status = {
-    timestamp: Date.now(),
-    vault: "online",
-    config: {
-      ports: [8081, 9099, 5002],
-      audit: true,
-    },
-  };
+export const pulseVault = functions.https.onCall(async (data, context) => {
+    if (!db) {
+        throw new functions.https.HttpsError('internal', 'Firestore admin is not initialized.');
+    }
+    const docRef = db.doc("vault/config");
+    
+    try {
+        const snapshot = await docRef.get();
+        const config = snapshot.data();
 
-  admin.firestore().collection("vault").doc("config").set(status)
-    .then(() => res.status(200).send("Vault status updated"))
-    .catch(err => res.status(500).send(`Error: ${err}`));
+        if (config?.credentialStatus !== "injected") {
+            return { status: "vault-blocked", reason: "credentialsMissing" };
+        }
+
+        await docRef.update({ meshEntropy: "synced" });
+        return { status: "vault-pulsed" };
+    } catch (error) {
+        console.error("Error pulsing vault:", error);
+        throw new functions.https.HttpsError('unknown', 'An unknown error occurred while pulsing the vault.', error);
+    }
 });

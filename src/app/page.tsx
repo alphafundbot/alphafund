@@ -7,7 +7,8 @@ import { Card as ShadCard, CardContent, CardHeader, CardTitle, CardFooter } from
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignalChart } from "@/components/signal-chart";
 import { CheckCircle, Clock, GanttChart, ShieldAlert, XCircle, Zap } from "lucide-react";
-import { pulseVault } from "@/app/actions.server";
+import { functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import { useToast } from "@/hooks/use-toast";
 
 const StrategistDashboard = () => {
@@ -15,8 +16,12 @@ const StrategistDashboard = () => {
   const { toast } = useToast();
 
   const handlePulseVault = async () => {
-      const result = await pulseVault();
-      if (result.status === "vault-pulsed") {
+    const pulseVaultCallable = httpsCallable(functions, 'pulseVault');
+    try {
+      const result = await pulseVaultCallable();
+      const data = result.data as { status: string, reason?: string };
+
+      if (data.status === "vault-pulsed") {
         toast({
           title: "Vault Pulsed",
           description: "Mesh entropy has been successfully synced.",
@@ -25,10 +30,18 @@ const StrategistDashboard = () => {
       } else {
         toast({
           title: "Vault Pulse Failed",
-          description: `Could not sync mesh entropy. Reason: ${result.reason || 'Unknown'}`,
+          description: `Could not sync mesh entropy. Reason: ${data.reason || 'Unknown'}`,
           variant: "destructive",
         });
       }
+    } catch (error) {
+       console.error("Error calling pulseVault function:", error);
+       toast({
+          title: "Vault Pulse Error",
+          description: "An unexpected error occurred while pulsing the vault.",
+          variant: "destructive",
+        });
+    }
   };
 
   if (loading) {

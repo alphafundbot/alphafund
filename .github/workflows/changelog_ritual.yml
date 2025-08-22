@@ -1,3 +1,129 @@
+on:
+
+name: Changelog Automation Ritual
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  pull_request:            # temporary for dry-run PR validation
+    types: [opened, synchronize, reopened]
+  release:                 # optional, for posting diffs to release discussions
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  generate_changelog:
+    name: Generate & Archive Changelog
+    runs-on: ubuntu-latest
+    env:
+      CHANGELOG_PATH: CHANGELOG.md
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: "🛡️ Validate Release Integrity"
+        if: github.ref_type == 'tag'
+        run: |
+          echo "🔍 Validating release tag: $GITHUB_REF_NAME"
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "❌ Invalid semantic version format: $GITHUB_REF_NAME"
+            echo "Expected format: v1.2.3"
+            exit 1
+          }
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests==2.32.5 PyGithub==2.7.0 python-dateutil==2.9.0.post0
+
+      - name: Run changelog generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python .github/scripts/changelog_generate.py
+
+      - name: Commit changelog
+        id: commit_changelog
+        run: |
+          git config user.name "Strategist Bot"
+          git config user.email "strategist@mesh.local"
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: update changelog for $GITHUB_REF_NAME"
+            git push || echo "No push on fork."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show changelog diff in logs
+        if: steps.commit_changelog.outputs.changed == 'true'
+        run: |
+          echo "--- Changelog diff ---"
+          git show HEAD -- CHANGELOG.md || echo "No changelog diff to show."
+
+      - name: Comment changelog diff on PR or release
+        if: steps.commit_changelog.outputs.changed == 'true' && github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            git show HEAD -- CHANGELOG.md > changelog.diff
+            gh pr comment $PR_NUMBER --body "### :memo: Changelog Diff\n\n\```diff\n$(cat changelog.diff)\n\```"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            RELEASE_ID=${{ github.event.release.id }}
+            git show HEAD -- CHANGELOG.md > changelog.diff
+            gh release comment $RELEASE_ID --body "### :memo: Changelog Diff\n\n\```diff\n$(cat changelog.diff)\n\```"
+          else
+            echo "Not a PR or release event, skipping comment."
+
+      - name: Archive changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
+      - name: Update PR body with changelog artifact link
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACT_URL="https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts"
+          BODY="$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body' | sed '/^\*\*🔗 Full Changelog Artifact:/d')"
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --body "$BODY\n\n**🔗 Full Changelog Artifact:** [View here](${ARTIFACT_URL})"
+
+      - name: Broadcast to Discord
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python .github/scripts/discord_broadcast.py
+
+      - name: Push release metrics to Grafana
+        if: ${{ secrets.GRAFANA_API_KEY != '' }}
+        env:
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          GRAFANA_INSTANCE: alphafundbot.grafana.net
+        run: |
+          python .github/scripts/grafana_push.py
+
+      - name: Lint workflow YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .github/workflows/changelog_ritual.yml
       - name: Broadcast to Discord
         if: env.DISCORD_WEBHOOK_URL != ''
         env:
@@ -50,13 +176,73 @@ on:
         run: |
           python .github/scripts/changelog_generate.py
 
+
       - name: Commit changelog
+        id: commit_changelog
         run: |
           git config user.name "Strategist Bot"
           git config user.email "strategist@mesh.local"
           git add CHANGELOG.md
-          git commit -m "chore: update changelog for $GITHUB_REF_NAME" || echo "No changes to commit."
-          git push || echo "No push on fork."
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: update changelog for $GITHUB_REF_NAME"
+            git push || echo "No push on fork."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+
+      - name: Show changelog diff in logs
+        if: steps.commit_changelog.outputs.changed == 'true'
+        run: |
+          echo "--- Changelog diff ---"
+          git show HEAD -- CHANGELOG.md || echo "No changelog diff to show."
+
+      # --- Dormant truncation guard: Uncomment to activate concise diffs ---
+      # - name: Show truncated changelog diff in logs
+      #   if: steps.commit_changelog.outputs.changed == 'true'
+      #   run: |
+      #     echo "--- Truncated changelog diff (first 100 lines) ---"
+      #     git show HEAD -- CHANGELOG.md | head -n 100
+      #     echo "... Diff truncated — see artifact for full details."
+
+
+      - name: Comment changelog diff on PR or release
+        if: steps.commit_changelog.outputs.changed == 'true' && github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only post if this is a PR or release event
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            git show HEAD -- CHANGELOG.md > changelog.diff
+            gh pr comment $PR_NUMBER --body "### :memo: Changelog Diff\n\n\`\`\`diff\n$(cat changelog.diff)\n\`\`\`"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            RELEASE_ID=${{ github.event.release.id }}
+            git show HEAD -- CHANGELOG.md > changelog.diff
+            gh release comment $RELEASE_ID --body "### :memo: Changelog Diff\n\n\`\`\`diff\n$(cat changelog.diff)\n\`\`\`"
+          else
+            echo "Not a PR or release event, skipping comment."
+          fi
+
+      # - name: Comment truncated changelog diff on PR or release
+      #   if: steps.commit_changelog.outputs.changed == 'true' && github.event_name != 'workflow_dispatch'
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+      #       PR_NUMBER=${{ github.event.pull_request.number }}
+      #       head -n 100 <(git show HEAD -- CHANGELOG.md) > changelog.diff
+      #       echo "... Diff truncated — see artifact for full details." >> changelog.diff
+      #       gh pr comment $PR_NUMBER --body "### :memo: Changelog Diff (truncated)\n\n\`\`\`diff\n$(cat changelog.diff)\n\`\`\`"
+      #     elif [[ "${{ github.event_name }}" == "release" ]]; then
+      #       RELEASE_ID=${{ github.event.release.id }}
+      #       head -n 100 <(git show HEAD -- CHANGELOG.md) > changelog.diff
+      #       echo "... Diff truncated — see artifact for full details." >> changelog.diff
+      #       gh release comment $RELEASE_ID --body "### :memo: Changelog Diff (truncated)\n\n\`\`\`diff\n$(cat changelog.diff)\n\`\`\`"
+      #     else
+      #       echo "Not a PR or release event, skipping comment."
 
       - name: Archive changelog artifact
         uses: actions/upload-artifact@v4

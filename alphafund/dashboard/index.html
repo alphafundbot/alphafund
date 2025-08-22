@@ -72,6 +72,30 @@
 
         <!-- Overview Cards -->
         <div class="overview-cards">
+          <div class="card liquidity-overview">
+            <div class="card-header">
+              <h3>Live Liquidity</h3>
+              <i class="fas fa-coins"></i>
+            </div>
+            <div class="card-content" style="display:flex;gap:16px;align-items:center;">
+              <div id="stripe-panel" style="min-width:160px;padding:8px;border-radius:6px;background:#0b5cff;color:#fff;">
+                <div style="font-size:12px;opacity:0.9">Stripe</div>
+                <div id="stripe-total" style="font-size:18px;font-weight:700;margin-top:4px">Loading…</div>
+                <div id="stripe-meta" style="font-size:11px;opacity:0.9;margin-top:6px">
+                  <div>Last updated: <span id="stripe-updated">—</span></div>
+                  <div>Seal: <code id="stripe-seal" style="word-break:break-all;color:#dbeafe">—</code></div>
+                </div>
+              </div>
+              <div id="upwork-panel" style="min-width:160px;padding:8px;border-radius:6px;background:#12b886;color:#fff;">
+                <div style="font-size:12px;opacity:0.9">Upwork</div>
+                <div id="upwork-total" style="font-size:18px;font-weight:700;margin-top:4px">Loading…</div>
+                <div id="upwork-meta" style="font-size:11px;opacity:0.9;margin-top:6px">
+                  <div>Last updated: <span id="upwork-updated">—</span></div>
+                  <div>Seal: <code id="upwork-seal" style="word-break:break-all;color:#e6fffa">—</code></div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="card market-sentiment">
             <div class="card-header">
               <h3>Market Sentiment</h3>
@@ -200,5 +224,40 @@
   </div>
 
   <script src="js/dashboard.js"></script>
+  <script>
+    async function fetchTotals(path) {
+      try {
+        const res = await fetch(path);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (e) {
+        console.error('fetchTotals error', path, e);
+        return null;
+      }
+    }
+
+    async function updateLiquidity() {
+      const stripe = await fetchTotals('/totals/stripe');
+      const upwork = await fetchTotals('/totals/upwork');
+      if (stripe) {
+        if (stripe.total_formatted) document.getElementById('stripe-total').textContent = stripe.total_formatted;
+        else if (stripe.total_usd) document.getElementById('stripe-total').textContent = `$${parseFloat(stripe.total_usd).toFixed(2)}`;
+        else document.getElementById('stripe-total').textContent = 'N/A';
+        document.getElementById('stripe-updated').textContent = new Date().toISOString();
+        document.getElementById('stripe-seal').textContent = stripe.sealed_hash || stripe.seal || '—';
+      }
+
+      if (upwork) {
+        if (upwork.total_formatted) document.getElementById('upwork-total').textContent = upwork.total_formatted;
+        else if (upwork.total_usd) document.getElementById('upwork-total').textContent = `$${parseFloat(upwork.total_usd).toFixed(2)}`;
+        else document.getElementById('upwork-total').textContent = 'N/A';
+        document.getElementById('upwork-updated').textContent = new Date().toISOString();
+        document.getElementById('upwork-seal').textContent = upwork.sealed_hash || upwork.seal || '—';
+      }
+    }
+
+    setInterval(updateLiquidity, 60000);
+    updateLiquidity();
+  </script>
 </body>
 </html>

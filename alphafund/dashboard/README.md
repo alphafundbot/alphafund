@@ -1,3 +1,10 @@
+# AlphaFund Dashboard
+
+## Gate Check
+
+![Gate Check Status](https://github.com/<OWNER>/<REPO>/actions/workflows/gate_check.yml/badge.svg)
+<!-- Replace <OWNER> and <REPO> with your GitHub org/user and repository name -->
+
 /* AlphaFund Trading Platform Dashboard Styles */
 
 :root {

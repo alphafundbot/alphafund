@@ -1,0 +1,31 @@
+name: Gate Integrity Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  gate-check:
+    runs-on: ubuntu-latest
+    env:
+      DASHBOARD_TOKEN: testtoken123
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install fastapi uvicorn python-dotenv requests stripe
+      - name: Start backend
+        run: |
+          cd alphafund
+          nohup uvicorn main:app --port 8000 &
+          sleep 10
+      - name: Run gate_check.py
+        run: |
+          python gate_check.py

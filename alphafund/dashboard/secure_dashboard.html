@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AlphaFund Liquidity Dashboard (Secure)</title>
+  <style>
+    body { font-family: Inter, system-ui, Arial, sans-serif; margin: 20px; }
+    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
+    .big { font-size: 28px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h1>AlphaFund Liquidity Dashboard (Secure)</h1>
+  <div class="card">
+    <label for="token">Dashboard token (paste once):</label>
+    <input id="token" type="text" style="width:60%" placeholder="Bearer token" />
+    <button id="saveToken">Save</button>
+  </div>
+
+  <div class="card">
+    <div class="big" id="grandTotal">—</div>
+    <div id="lastUpdated">Last updated: —</div>
+  </div>
+
+  <div class="card">
+    <canvas id="totalsChart" width="600" height="200"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Per-provider seals</h3>
+    <table>
+      <thead><tr><th>Provider</th><th>Total</th><th>Rows</th><th>Sealed Hash</th></tr></thead>
+      <tbody id="sealsTable"></tbody>
+    </table>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/js/dashboard_secure.js"></script>
+</body>
+</html>

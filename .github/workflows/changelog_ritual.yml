@@ -1,0 +1,82 @@
+      - name: Broadcast to Discord
+        if: env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python .github/scripts/discord_broadcast.py
+
+jobs:
+
+name: Changelog Automation Ritual
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+
+  generate_changelog:
+    name: Generate & Archive Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: "\U0001F6E1️ Validate Release Integrity"
+        run: |
+          echo "\U0001F50D Validating release tag: $GITHUB_REF_NAME"
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "❌ Invalid semantic version format: $GITHUB_REF_NAME"
+            echo "Expected format: v1.2.3"
+            exit 1
+          }
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests==2.32.5 PyGithub==2.7.0 python-dateutil==2.9.0.post0
+
+      - name: Run changelog generation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          CHANGELOG_PATH: CHANGELOG.md
+        run: |
+          python .github/scripts/changelog_generate.py
+
+      - name: Commit changelog
+        run: |
+          git config user.name "Strategist Bot"
+          git config user.email "strategist@mesh.local"
+          git add CHANGELOG.md
+          git commit -m "chore: update changelog for $GITHUB_REF_NAME" || echo "No changes to commit."
+          git push || echo "No push on fork."
+
+      - name: Archive changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
+      - name: Broadcast to Discord
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python .github/scripts/discord_broadcast.py
+
+      - name: Push release metrics to Grafana
+        if: ${{ secrets.GRAFANA_API_KEY != '' }}
+        env:
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          GRAFANA_INSTANCE: alphafundbot.grafana.net
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python .github/scripts/grafana_push.py

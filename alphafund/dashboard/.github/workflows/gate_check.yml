@@ -1,38 +1,338 @@
 name: Gate Check
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
-  schedule:
-    - cron: '0 2 * * *' # Runs every day at 02:00 UTC
+  workflow_dispatch:
 
 jobs:
-  gate-check:
+
+  lint:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+  # Common reusable steps
+  _common_checks: &common_checks
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Run unit tests
+      run: npm test
+
+  lint_and_test:
+    name: Lint and Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      *common_checks
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: lint_and_test
+    steps:
+      - <<: *common_checks
+      - name: Build
+        run: npm run build
+
+  smoke_tests_staging:
+    name: Smoke Tests - Staging
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - <<: *common_checks
+      - name: Deploy to staging
+        run: ./scripts/deploy.sh staging
+      - name: Run staging smoke tests
+        run: npm run smoke:staging
+
+  smoke_tests_preprod:
+    name: Smoke Tests - Pre‑Prod
+    runs-on: ubuntu-latest
+    needs: smoke_tests_staging
+    steps:
+      - <<: *common_checks
+      - name: Deploy to pre‑prod
+        run: ./scripts/deploy.sh preprod
+      - name: Run pre‑prod smoke tests
+        run: npm run smoke:preprod
+
+  smoke_tests_prod:
+    name: Smoke Tests - Prod
+    runs-on: ubuntu-latest
+    needs: smoke_tests_preprod
+    steps:
+      - <<: *common_checks
+      - name: Deploy to prod
+        run: ./scripts/deploy.sh prod
+      - name: Run prod smoke tests
+        run: npm run smoke:prod
+
+  archive_artifacts:
+    name: Archive Build Artifacts
+    runs-on: ubuntu-latest
+    needs: smoke_tests_prod
+    steps:
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+  notify_pagerduty:
+    name: Notify PagerDuty
+    runs-on: ubuntu-latest
+    needs: archive_artifacts
+    steps:
+      - name: Trigger PagerDuty event
+        uses: PagerDuty/actions-trigger@v1
+        with:
+          routing_key: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          summary: "CI/CD pipeline completed successfully"
+          severity: info
+          source: gate_check.yml
+
+  notify_slack:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    needs: notify_pagerduty
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":white_check_mark: CI/CD pipeline completed successfully and artifacts archived."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: 18
+      - name: Run staging smoke tests
+        run: |
+          echo "Running smoke tests against ${{ env.BASE_URL }}"
+          npm run test:smoke -- --base-url="${{ env.BASE_URL }}"
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v3
+  canary_smoke:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: 'canary'
+      BASE_URL: "${{ secrets.CANARY_BASE_URL }}"
+      DB_HOST: "${{ secrets.CANARY_DB_HOST }}"
+      DB_PORT: "${{ secrets.CANARY_DB_PORT }}"
+      DB_NAME: "${{ secrets.CANARY_DB_NAME }}"
+      DB_USER: "${{ secrets.CANARY_DB_USER }}"
+      DB_PASSWORD: "${{ secrets.CANARY_DB_PASSWORD }}"
+      PAYMENT_GATEWAY_KEY: "${{ secrets.CANARY_PAYMENT_GATEWAY_KEY }}"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: 18
+      - name: Run canary smoke tests
+        run: |
+          echo "Running smoke tests against ${{ env.BASE_URL }}"
+          npm run test:smoke -- --base-url="${{ env.BASE_URL }}"
 
-      - name: Install dependencies
-        run: npm install
+  notify:
+    needs:
+      - staging_smoke
+      - canary_smoke
+    runs-on: ubuntu-latest
+    if: always()
+    env:
+      SLACK_CHANNEL: "${{ secrets.SLACK_CHANNEL }}"
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: ${{ env.SLACK_CHANNEL }}
+          payload: |
+            {
+              "text": "Workflow '${{ github.workflow }}' completed with status '${{ job.status }}'.",
+              "attachments": [
+                {
+                  "color": ${{ job.status == 'success' && '"good"' || '"danger"' }},
+                  "fields": [
+                    {
+                      "title": "Environments",
+                      "value": "staging, canary",
+                      "short": true
+                    }
+                  ]
+                }
+              ]
+            }
+      - name: Send PagerDuty alert on failure
+        if: ${{ job.status == 'failure' }}
+        uses: PagerDuty/pagerduty-action@v2
+        with:
+          routing-key: "${{ secrets.PAGERDUTY_ROUTING_KEY }}"
+          severity: "${{ secrets.PAGERDUTY_SEVERITY }}"
 
-      - name: Run gate check
-        run: npm run gate-check
+  cleanup:
+    needs: notify
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Clean workspace
+        run: rm -rf ./*
+
+  # 2. Deployment Jobs
+  deploy_staging:
+    needs: staging_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Staging
+        run: ./scripts/deploy.sh staging
+
+  deploy_canary:
+    needs: canary_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Canary
+        run: ./scripts/deploy.sh canary
+
+  deploy_production:
+    needs: production_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Production
+        run: ./scripts/deploy.sh production
+
+  # 4. Future Expansion Ideas
+  performance_benchmark:
+    needs: staging_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run k6 performance test
+        run: k6 run tests/performance/script.js
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: results/
+
+  security_scan:
+    needs: canary_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.4.0
+        with:
+          target: ${{ secrets.CANARY_BASE_URL }}
+      - name: Snyk vulnerability scan
+        uses: snyk/actions@master
+        with:
+          args: test
+        env:
+          SNYK_TOKEN: "${{ secrets.SNYK_TOKEN }}"
+
+  chaos_smoke:
+    needs: production_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Pumba for chaos
+        run: sudo apt-get update && sudo apt-get install -y pumba
+      - name: Inject 200ms network delay for 60s
+        run: |
+          pumba netem --duration 60s delay re2:^.*$ --tc-image gaiadocker/iproute2
+      - name: Validate health under chaos
+        run: curl --fail "${{ secrets.PROD_BASE_URL }}/health"
+
+  compliance_check:
+    needs: production_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Terraform fmt & validate
+        run: |
+          cd infra/terraform
+          terraform fmt -check
+          terraform init -backend=false
+          terraform validate
+
+  # 4. Notification Lattice: PagerDuty and Slack
+  notify-pagerduty:
+    name: Notify PagerDuty on Failure
+    needs: [build, staging_smoke, canary_smoke, production_smoke]
+    if: ${{ always() && failure() }}
+    runs-on: ubuntu-latest
+    env:
+  ENVIRONMENT: "${{ github.ref == 'refs/heads/main' && 'production' || startsWith(github.ref, 'refs/heads/staging/') && 'staging' || startsWith(github.ref, 'refs/heads/canary/') && 'canary' || 'unknown' }}"
+    steps:
+      - name: Trigger PagerDuty Incident
+        uses: philips-labs/pagerduty-github-action@v1.0.0
+        with:
+          routing_key: ${{ env.PAGERDUTY_ROUTING_KEY }}
+          summary: "🚨 CI failure in ${{ github.repository }} #${{ github.run_number }} (${{ env.ENVIRONMENT }})"
+          source: "GitHub Actions"
+          severity: ${{ env.PAGERDUTY_SEVERITY }}
+          custom_details: |
+            {
+              "environment": "${{ env.ENVIRONMENT }}",
+              "run_id": "${{ github.run_id }}",
+              "run_number": "${{ github.run_number }}",
+              "commit": "${{ github.sha }}",
+              "ref": "${{ github.ref }}",
+              "actor": "${{ github.actor }}",
+              "workflow": "${{ github.workflow }}",
+              "repository": "${{ github.repository }}"
+            }
+
+  resolve-pagerduty:
+    name: Auto-resolve PagerDuty on Success
+    needs: [build, staging_smoke, canary_smoke, production_smoke]
+    if: ${{ always() && success() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PagerDuty Incident
+        uses: philips-labs/pagerduty-github-action@v1.0.0
+        with:
+          routing_key: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          event_action: resolve
+          dedup_key: ${{ github.run_id }}
+
+  notify-slack:
+    name: Send Slack Notification
+    needs: [notify-pagerduty, resolve-pagerduty]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    env:
+  ENVIRONMENT: "${{ github.ref == 'refs/heads/main' && 'production' || startsWith(github.ref, 'refs/heads/staging/') && 'staging' || startsWith(github.ref, 'refs/heads/canary/') && 'canary' || 'unknown' }}"
+    steps:
+      - name: Send message to Slack
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          slack-token: ${{ env.SLACK_TOKEN }}
+          channel-id: ${{ env.SLACK_CHANNEL }}
+          text: |
+            ${{ failure() && '🚨 CI pipeline failed.' || '✅ CI pipeline succeeded.' }}
+            • Environment: `${{ env.ENVIRONMENT }}`
+            • Repository: `${{ github.repository }}`
+            • Run #${{ github.run_number }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`

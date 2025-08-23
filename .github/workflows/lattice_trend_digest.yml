@@ -1,0 +1,123 @@
+# =============================================================
+# 📊 Lattice Trend Digest — State of the Lattice Ritual
+#
+# Aggregates weekly Cloudflare purge and changelog activity from Grafana.
+# Posts a digest as a comment to a designated issue, archives as artifact,
+# and can optionally broadcast to Discord.
+#
+# 🔑 Controls & Toggles:
+#   - DIGEST_TARGET_ISSUE:   Issue number to post digest comment to.
+#   - ARCHIVE_DIGEST:        'true' to upload digest as artifact (default: true)
+#   - DISCORD_BROADCAST:     'true' to send digest to Discord webhook (default: false)
+#   - GRAFANA_API_KEY:       GitHub secret (for Grafana queries)
+#   - GRAFANA_INSTANCE:      Grafana instance URL (for metrics)
+#   - DISCORD_WEBHOOK_URL:   GitHub secret (optional, for Discord broadcast)
+#
+# 🔄 Default Flow:
+#   1. Query Grafana for Cloudflare and changelog metrics (past 7 days)
+#   2. Generate Markdown digest (headline, Cloudflare, Changelog, Anomalies)
+#   3. Post digest as comment to DIGEST_TARGET_ISSUE
+#   4. Archive digest as artifact (if ARCHIVE_DIGEST)
+#   5. Optionally broadcast digest to Discord (if DISCORD_BROADCAST)
+#
+# =============================================================
+name: Lattice Trend Digest
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  trend_digest:
+    name: Generate & Post Lattice Trend Digest
+    runs-on: ubuntu-latest
+    env:
+      DIGEST_TARGET_ISSUE: ${{ secrets.DIGEST_TARGET_ISSUE || '1' }}
+      ARCHIVE_DIGEST: ${{ secrets.ARCHIVE_DIGEST || 'true' }}
+      DISCORD_BROADCAST: ${{ secrets.DISCORD_BROADCAST || 'false' }}
+      GRAFANA_INSTANCE: ${{ secrets.GRAFANA_INSTANCE }}
+      GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL || '' }}
+
+    steps:
+      # 🟦 Query Grafana for Cloudflare and changelog metrics (past 7 days)
+      - name: Query Grafana for Metrics
+        id: query_grafana
+        run: |
+          set -e
+          NOW=$(date -u +%s%3N)
+          WEEK_AGO=$(date -u -d '7 days ago' +%s%3N)
+          # Query Cloudflare purges
+          PURGE_JSON=$(curl -s -X GET "https://${GRAFANA_INSTANCE}/api/annotations?tags=cloudflare&from=$WEEK_AGO&to=$NOW" \
+            -H "Authorization: Bearer ${GRAFANA_API_KEY}")
+          # Query changelog updates
+          CHANGELOG_JSON=$(curl -s -X GET "https://${GRAFANA_INSTANCE}/api/annotations?tags=changelog&from=$WEEK_AGO&to=$NOW" \
+            -H "Authorization: Bearer ${GRAFANA_API_KEY}")
+          echo "$PURGE_JSON" > purge.json
+          echo "$CHANGELOG_JSON" > changelog.json
+
+      # 📝 Generate Markdown digest
+      - name: Generate Digest Markdown
+        id: generate_digest
+        run: |
+          set -e
+          python3 <<'EOF'
+import json, datetime
+# Load metrics
+with open('purge.json') as f: purges = json.load(f)
+with open('changelog.json') as f: changelogs = json.load(f)
+now = datetime.datetime.utcnow()
+week_ago = now - datetime.timedelta(days=7)
+# Cloudflare stats
+purge_types = {'targeted': 0, 'full': 0}
+for p in purges:
+    t = 'targeted' if 'targeted' in p.get('tags', []) else 'full'
+    purge_types[t] += 1
+fallbacks = [p for p in purges if 'fallback' in p.get('text', '')]
+# Changelog stats
+changelog_count = len(changelogs)
+lines_changed = 0
+for c in changelogs:
+    try:
+        lines_changed += int([s for s in c.get('text', '').split() if s.startswith('lines=')][0].split('=')[1])
+    except Exception:
+        pass
+# Markdown digest
+with open('digest.md', 'w') as f:
+    f.write(f"# State of the Lattice: {week_ago:%Y-%m-%d} to {now:%Y-%m-%d}\n\n")
+    f.write(f"## Cloudflare Purges\n- Targeted: {purge_types['targeted']}\n- Full: {purge_types['full']}\n- Fallbacks: {len(fallbacks)}\n\n")
+    f.write(f"## Changelog Updates\n- Updates: {changelog_count}\n- Total Lines Changed: {lines_changed}\n\n")
+    if fallbacks:
+        f.write(f"## Anomalies\n- {len(fallbacks)} fallback/full purges detected.\n\n")
+    f.write(f"_Generated {now:%Y-%m-%d %H:%M UTC}_\n")
+EOF
+
+      # 🗒️ Post digest as comment to designated issue
+      - name: Post Digest to Issue
+        if: env.DIGEST_TARGET_ISSUE != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment $DIGEST_TARGET_ISSUE --body-file digest.md
+
+      # 📦 Archive digest as artifact
+      - name: Archive Digest Artifact
+        if: env.ARCHIVE_DIGEST == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lattice-trend-digest
+          path: digest.md
+
+      # 📢 Optionally broadcast digest to Discord
+      - name: Broadcast Digest to Discord
+        if: env.DISCORD_BROADCAST == 'true' && env.DISCORD_WEBHOOK_URL != ''
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d "{\"content\":\"$(cat digest.md | sed ':a;N;$!ba;s/\n/\\n/g')\"}" "$DISCORD_WEBHOOK_URL"
+
+      # 🔍 Lint workflow YAML
+      - name: Lint workflow YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .github/workflows/lattice_trend_digest.yml

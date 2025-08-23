@@ -1,3 +1,25 @@
+
+# =============================================================
+# 📜 Changelog Automation Ritual — Audit & Telemetry Sentinel
+#
+# This workflow generates, commits, and archives the changelog for every release.
+#
+# 🔑 Controls & Toggles:
+#   - GITHUB_TOKEN:         GitHub Actions secret (for PR/release comments)
+#   - GRAFANA_API_KEY:      GitHub secret (for changelog metrics)
+#   - GRAFANA_INSTANCE:     Grafana instance URL (for metrics)
+#   - CHANGELOG_SUMMARY_COMMENT: If 'false', disables PR/release summary comment (default: true)
+#   - TRUNCATE_DIFF:        If 'true', truncates changelog diff in logs/comments
+#
+# 🔄 Default Flow:
+#   1. Generate and commit changelog
+#   2. Show and comment changelog diff (truncated if toggle set)
+#   3. Archive changelog artifact
+#   4. Post changelog summary to PR/release (unless CHANGELOG_SUMMARY_COMMENT is false)
+#   5. Push changelog metrics to Grafana (if secrets present)
+#
+# See /docs/changelog_ritual.md for full details.
+# =============================================================
 on:
 
 name: Changelog Automation Ritual
@@ -67,28 +89,53 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
+
+      # 📝 Show changelog diff in logs (truncated if TRUNCATE_DIFF is true)
       - name: Show changelog diff in logs
         if: steps.commit_changelog.outputs.changed == 'true'
+        env:
+          TRUNCATE_DIFF: ${{ env.TRUNCATE_DIFF || 'false' }}
         run: |
-          echo "--- Changelog diff ---"
-          git show HEAD -- CHANGELOG.md || echo "No changelog diff to show."
+          if [ "$TRUNCATE_DIFF" = "true" ]; then
+            echo "--- Truncated changelog diff (first 100 lines) ---"
+            git show HEAD -- CHANGELOG.md | head -n 100
+            echo "... Diff truncated — see artifact for full details."
+          else
+            echo "--- Changelog diff ---"
+            git show HEAD -- CHANGELOG.md || echo "No changelog diff to show."
+          fi
 
-      - name: Comment changelog diff on PR or release
-        if: steps.commit_changelog.outputs.changed == 'true' && github.event_name != 'workflow_dispatch'
+
+      # 🗒️ Post changelog summary to PR or release discussion
+      # Includes lines changed, artifact link, and truncation/fallback if any.
+      # Controlled by CHANGELOG_SUMMARY_COMMENT (default: true)
+      - name: Post Changelog Summary Comment
+        if: env.CHANGELOG_SUMMARY_COMMENT != 'false' && steps.commit_changelog.outputs.changed == 'true' && github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          DIFF_LINES=$(git show HEAD -- CHANGELOG.md | wc -l)
+          ARTIFACT_URL="https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts"
+          SUMMARY="**Changelog Update**\n\nLines Changed: $DIFF_LINES\n[🔗 Full Changelog Artifact]($ARTIFACT_URL)\nTimestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            PR_NUMBER=${{ github.event.pull_request.number }}
-            git show HEAD -- CHANGELOG.md > changelog.diff
-            gh pr comment $PR_NUMBER --body "### :memo: Changelog Diff\n\n\```diff\n$(cat changelog.diff)\n\```"
+            gh pr comment ${{ github.event.pull_request.number }} --body "$SUMMARY"
           elif [[ "${{ github.event_name }}" == "release" ]]; then
-            RELEASE_ID=${{ github.event.release.id }}
-            git show HEAD -- CHANGELOG.md > changelog.diff
-            gh release comment $RELEASE_ID --body "### :memo: Changelog Diff\n\n\```diff\n$(cat changelog.diff)\n\```"
-          else
-            echo "Not a PR or release event, skipping comment."
+            gh release comment ${{ github.event.release.id }} --body "$SUMMARY"
+          fi
 
+      # 📊 Push changelog metrics to Grafana for operational telemetry
+      # Mirrors Cloudflare sentinel's Grafana integration pattern.
+      - name: Push Changelog Metrics to Grafana
+        if: ${{ secrets.GRAFANA_API_KEY != '' && secrets.GRAFANA_INSTANCE != '' && steps.commit_changelog.outputs.changed == 'true' }}
+        env:
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          GRAFANA_INSTANCE: ${{ secrets.GRAFANA_INSTANCE }}
+        run: |
+          DIFF_LINES=$(git show HEAD -- CHANGELOG.md | wc -l)
+          curl -X POST "https://${GRAFANA_INSTANCE}/api/annotations" \
+            -H "Authorization: Bearer ${GRAFANA_API_KEY}" \
+            -H "Content-Type: application/json" \
+            --data "{\n  \"tags\": [\"changelog\", \"update\"],\n  \"text\": \"Changelog update: lines=$DIFF_LINES\",\n  \"time\": $(date +%s%3N)\n}"
       - name: Archive changelog artifact
         uses: actions/upload-artifact@v4
         with:
@@ -266,3 +313,133 @@ on:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python .github/scripts/grafana_push.py
+
+      # --- Lattice Trend Digest: Unified Metrics-to-Briefing Ritual ---
+      - name: Generate Lattice Trend Digest
+      if: ${{ secrets.GRAFANA_API_KEY != '' && secrets.GRAFANA_INSTANCE != '' }}
+      env:
+        GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+        GRAFANA_INSTANCE: ${{ secrets.GRAFANA_INSTANCE }}
+        ENABLE_SNAPSHOTS: ${{ env.ENABLE_SNAPSHOTS || 'false' }}
+        GRAFANA_SNAPSHOT_URLS: ${{ env.GRAFANA_SNAPSHOT_URLS || '' }}
+      run: |
+        import os
+        import requests
+        from datetime import datetime, timedelta
+
+        # =========================
+        # 📜 Lattice Trend Digest: Unified Metrics-to-Briefing Block
+        # - Authenticates to Grafana API
+        # - Queries for purges, changelog lines, anomalies (current & previous week)
+        # - Calculates deltas, applies severity, embeds snapshots if enabled
+        # - Writes digest.md for posting, archiving, and broadcast
+        # =========================
+
+        # ---- Configurable thresholds & toggles ----
+        SEVERITY_CONFIG = {
+          "purges": {"warning": 10, "critical": 25},
+          "changelog_lines": {"warning": 15, "critical": 40},
+          "anomalies": {"warning": 1, "critical": 3}
+        }
+        ENABLE_SNAPSHOTS = os.getenv("ENABLE_SNAPSHOTS", "false").lower() == "true"
+        SNAPSHOT_URLS = [u for u in os.getenv("GRAFANA_SNAPSHOT_URLS", "").split(",") if u.strip()] if ENABLE_SNAPSHOTS else []
+
+        # ---- Grafana API setup ----
+        GRAFANA_API_KEY = os.environ["GRAFANA_API_KEY"]
+        GRAFANA_INSTANCE = os.environ["GRAFANA_INSTANCE"]
+        HEADERS = {"Authorization": f"Bearer {GRAFANA_API_KEY}", "Content-Type": "application/json"}
+        BASE_URL = f"https://{GRAFANA_INSTANCE}/api/ds/query"
+
+        # ---- Metric queries (replace with your actual datasource/metric info) ----
+        DATASOURCE_UID = "your-datasource-uid"  # <-- Replace with your actual datasource UID
+        METRICS = {
+          "purges": "sum(purges)",
+          "changelog_lines": "sum(changelog_lines)",
+          "anomalies": "sum(anomalies)"
+        }
+
+        def query_metric(expr, start, end):
+          # Query Grafana for a metric over a time range (Prometheus-style example)
+          payload = {
+            "queries": [
+              {
+                "refId": "A",
+                "datasource": {"uid": DATASOURCE_UID},
+                "expr": expr,
+                "intervalMs": 60000,
+                "maxDataPoints": 1
+              }
+            ],
+            "range": {
+              "from": start.isoformat() + "Z",
+              "to": end.isoformat() + "Z"
+            }
+          }
+          resp = requests.post(BASE_URL, headers=HEADERS, json=payload)
+          if not resp.ok:
+            raise RuntimeError(f"Grafana query failed: {resp.status_code} {resp.text}")
+          data = resp.json()
+          try:
+            # Prometheus-style: data["results"]["A"]["frames"][0]["data"]["values"][1][0]
+            val = float(data["results"]["A"]["frames"][0]["data"]["values"][1][0])
+          except Exception:
+            raise RuntimeError(f"No data for query: {expr}")
+          return val
+
+        # ---- Time windows ----
+        now = datetime.utcnow()
+        week_ago = now - timedelta(days=7)
+        two_weeks_ago = now - timedelta(days=14)
+
+        # ---- Fetch metrics ----
+        current_metrics = {}
+        previous_metrics = {}
+        for metric, expr in METRICS.items():
+          # Current week: [week_ago, now)
+          current_metrics[metric] = query_metric(expr, week_ago, now)
+          # Previous week: [two_weeks_ago, week_ago)
+          previous_metrics[metric] = query_metric(expr, two_weeks_ago, week_ago)
+
+        # ---- Delta/severity logic ----
+        def calc_delta(metric_name):
+          curr = current_metrics.get(metric_name, 0)
+          prev = previous_metrics.get(metric_name, 0)
+          delta_pct = ((curr - prev) / prev * 100) if prev else 0
+          sev_cfg = SEVERITY_CONFIG.get(metric_name, {})
+          marker = ""
+          if abs(delta_pct) >= sev_cfg.get("critical", 999):
+            marker = "🚨"
+          elif abs(delta_pct) >= sev_cfg.get("warning", 999):
+            marker = "🟡"
+          return curr, delta_pct, marker
+
+        # ---- Build digest ----
+        digest_lines = []
+        digest_lines.append(f"# State of the Lattice — {now.strftime('%Y-%m-%d')}")
+        digest_lines.append("")
+        digest_lines.append("## Cloudflare Purges")
+        purges, purges_delta, purges_marker = calc_delta("purges")
+        digest_lines.append(f"- Total Purges: **{purges:.0f}** ({purges_delta:+.1f}%){purges_marker}")
+
+        digest_lines.append("")
+        digest_lines.append("## Changelog Activity")
+        lines, lines_delta, lines_marker = calc_delta("changelog_lines")
+        digest_lines.append(f"- Lines Changed: **{lines:.0f}** ({lines_delta:+.1f}%){lines_marker}")
+
+        digest_lines.append("")
+        digest_lines.append("## Anomalies")
+        anomalies, anomalies_delta, anomalies_marker = calc_delta("anomalies")
+        digest_lines.append(f"- Count: **{anomalies:.0f}** ({anomalies_delta:+.1f}%){anomalies_marker}")
+
+        # ---- Optional Grafana snapshots ----
+        if ENABLE_SNAPSHOTS and SNAPSHOT_URLS:
+          digest_lines.append("")
+          digest_lines.append("## Visuals")
+          for url in SNAPSHOT_URLS:
+            digest_lines.append(f"![Grafana Panel]({url.strip()})")
+
+        # ---- Write digest to file for comment/artifact steps ----
+        with open("digest.md", "w", encoding="utf-8") as f:
+          f.write("\n".join(digest_lines))
+
+        print("Digest generated:\n", "\n".join(digest_lines))

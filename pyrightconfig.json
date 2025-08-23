@@ -1,0 +1,23 @@
+{
+  "include": ["alphafund"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "tests",
+    "build",
+    "dist",
+    "**/*.egg-info"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "warning",
+  "reportMissingTypeStubs": "none",
+  "reportUnknownParameterType": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none",
+  "strict": true,
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "strict",
+  "venvPath": ".",
+  "venv": ".venv"
+}

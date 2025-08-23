@@ -1,0 +1,35 @@
+name: ETL Workflow
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Runs every hour
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.22'
+
+      - name: Build ETL binary
+        run: |
+          cd telemetry-etl
+          go build -o etl .
+
+      - name: Execute ETL loader
+        env:
+          PROM_URL: ${{ secrets.PROM_URL }}
+          PROM_AUTH_HEADER: ${{ secrets.PROM_AUTH_HEADER }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          ./etl

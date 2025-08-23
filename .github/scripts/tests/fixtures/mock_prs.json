@@ -1,0 +1,32 @@
+[
+  {
+    "number": 101,
+    "title": "Add new feature X",
+    "labels": [
+      {"name": "type:feature"},
+      {"name": "scope:api"},
+      {"name": "domain:core"}
+    ],
+    "merged_at": "2025-08-20T12:00:00Z"
+  },
+  {
+    "number": 102,
+    "title": "Fix security issue",
+    "labels": [
+      {"name": "type:security"},
+      {"name": "scope:auth"},
+      {"name": "domain:security"}
+    ],
+    "merged_at": "2025-08-21T15:00:00Z"
+  },
+  {
+    "number": 103,
+    "title": "Refactor codebase",
+    "labels": [
+      {"name": "type:refactor"},
+      {"name": "scope:infra"},
+      {"name": "domain:core"}
+    ],
+    "merged_at": "2025-08-22T09:00:00Z"
+  }
+]

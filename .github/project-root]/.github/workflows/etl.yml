@@ -1,0 +1,65 @@
+name: ETL Workflow
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Nightly at midnight
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run linting
+        run: |
+          pylint src/etl/main.py
+
+      - name: Run tests
+        run: |
+          pytest
+
+  package:
+    name: Package Application
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Build Docker image
+        run: |
+          docker build -t my-etl-app .
+
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: package
+    steps:
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy my-etl-app --image gcr.io/my-project/my-etl-app --platform managed --region us-central1 --allow-unauthenticated
+
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Notify Grafana
+        run: |
+          curl -X POST -H "Content-Type: application/json" -d '{"text": "ETL process completed successfully!"}' ${{ secrets.GRAFANA_WEBHOOK_URL }}
+
+      - name: Notify Slack
+        run: |
+          curl -X POST -H "Content-Type: application/json" -d '{"text": "ETL process completed successfully!"}' ${{ secrets.SLACK_WEBHOOK_URL }}

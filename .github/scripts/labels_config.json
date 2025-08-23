@@ -1,0 +1,18 @@
+{
+  "families": ["type", "scope", "domain", "cadence", "impact"],
+  "heraldry": {
+    "type": {
+      "feature": { "color": "#36a64f", "icon": "✨" },
+      "fix": { "color": "#e01e5a", "icon": "🛠" },
+      "chore": { "color": "#aaaaaa", "icon": "🗂" }
+    },
+    "scope": {
+      "api": { "color": "#439fe0", "icon": "🔌" },
+      "ui": { "color": "#f2c744", "icon": "🖥" }
+    },
+    "domain": {
+      "infra": { "color": "#6f42c1", "icon": "🏗" },
+      "web": { "color": "#ff8c00", "icon": "🌐" }
+    }
+  }
+}

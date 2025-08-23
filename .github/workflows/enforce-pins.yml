@@ -1,0 +1,20 @@
+name: Enforce Dependency Pinning
+
+on:
+  pull_request:
+    paths:
+      - "requirements.txt"
+      - "dev-requirements.txt"
+
+jobs:
+  enforce-pins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for unpinned dependencies
+        run: |
+          if grep -E '^[a-zA-Z0-9_.-]+( *#.*)?$' requirements.txt dev-requirements.txt; then
+            echo "❌ Unpinned dependencies detected. Please pin all packages to exact versions."
+            exit 1
+          fi

@@ -1,0 +1,309 @@
+name: CI
+on:
+  push:
+    name: CI
+    on:
+      push:
+        branches: [main]
+        tags: ['v*.*.*']
+      pull_request:
+      workflow_dispatch:
+
+
+      lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.11'
+          - run: pip install flake8
+          - run: flake8 .
+
+      typecheck:
+        name: Static Type Check
+        runs-on: ubuntu-latest
+        needs: [lint]
+        steps:
+          - uses: actions/checkout@v4
+          - name: Set up Node.js
+            uses: actions/setup-node@v4
+            with:
+              node-version: '20'
+          - name: Install Pyright
+            run: npm install -g pyright
+          - name: Run Pyright
+            run: pyright | tee pyright-output.txt
+          - name: Archive typecheck report
+            uses: actions/upload-artifact@v4
+            with:
+              name: typecheck-report
+              path: pyright-output.txt
+          - name: Notify Slack of Typecheck Failure
+            if: failure()
+            uses: slackapi/slack-github-action@v1.24.0
+            with:
+              payload: |
+                {
+                  "text": ":x: Typecheck failure in `${{ github.job }}` during `${{ github.workflow }}`. Strategist attention required."
+                }
+            env:
+              SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      test:
+        name: Test
+        runs-on: ubuntu-latest
+        needs: [lint, typecheck]
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.11'
+          - run: pip install pytest
+          - run: pytest --maxfail=1 --disable-warnings -q
+          - name: Notify Slack of Failure
+            if: failure()
+            uses: slackapi/slack-github-action@v1.24.0
+            with:
+              payload: |
+                {
+                  "text": ":warning: CI failure in `${{ github.job }}` during `${{ github.workflow }}`. Strategist attention required."
+                }
+            env:
+              SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      coverage:
+        name: Coverage
+        runs-on: ubuntu-latest
+        needs: [lint, typecheck, test]
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.11'
+          - run: pip install coverage codecov
+          - run: coverage run -m pytest
+          - run: coverage xml
+          - run: codecov
+
+      changelog:
+        name: Inscribe Changelog
+        runs-on: ubuntu-latest
+        needs: [coverage]
+        if: startsWith(github.ref, 'refs/tags/v')
+        steps:
+          - uses: actions/checkout@v4
+            with:
+              fetch-depth: 0
+          - name: Set up Node.js
+            uses: actions/setup-node@v4
+            with:
+              node-version: '20'
+          - name: Install changelog generator
+            run: npm install -g conventional-changelog-cli
+          - name: Generate changelog
+            run: conventional-changelog -p angular -i CHANGELOG.md -s
+          - name: Fail if changelog unchanged
+            run: |
+              if git diff --exit-code CHANGELOG.md; then
+                echo "No changelog changes detected — failing."
+                exit 1
+              fi
+          - name: Commit changelog
+            run: |
+              git config user.name "ci-bot"
+              git config user.email "ci-bot@users.noreply.github.com"
+              git add CHANGELOG.md
+              git commit -m "chore(release): update changelog for ${GITHUB_REF#refs/tags/}"
+              git push origin HEAD:main
+          - name: Archive changelog artifact
+            uses: actions/upload-artifact@v4
+            with:
+              name: changelog-${GITHUB_REF#refs/tags/}
+              path: CHANGELOG.md
+          - name: Notify Slack of Release
+            if: success()
+            uses: slackapi/slack-github-action@v1.24.0
+            with:
+              payload: |
+                {
+                  "text": ":tada: Release `${{ github.ref_name }}` completed successfully. Changelog inscribed and archived."
+                }
+            env:
+              SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      publish:
+        name: Publish to PyPI
+        runs-on: ubuntu-latest
+        needs: [changelog]
+        if: startsWith(github.ref, 'refs/tags/v')
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.11'
+          - run: pip install build twine
+          - run: python -m build
+          - name: Publish to PyPI
+            run: twine upload dist/*
+            env:
+              TWINE_USERNAME: __token__
+              TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          - name: Notify Slack of PyPI Publish
+            if: success()
+            uses: slackapi/slack-github-action@v1.24.0
+            with:
+              payload: |
+                {
+                  "text": ":package: PyPI publish for `${{ github.ref_name }}` succeeded."
+                }
+            env:
+              SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          publish:
+            name: Publish to PyPI
+            runs-on: ubuntu-latest
+            needs: [changelog]
+            if: startsWith(github.ref, 'refs/tags/v')
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-python@v5
+                with:
+                  python-version: '3.11'
+              - run: pip install build twine
+              - run: python -m build
+              - name: Publish to PyPI
+                run: twine upload dist/*
+                env:
+                  TWINE_USERNAME: __token__
+                  TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+              - name: Notify Slack of PyPI Publish
+                if: success()
+                uses: slackapi/slack-github-action@v1.24.0
+                with:
+                  payload: |
+                    {
+                      "text": ":package: PyPI publish for `${{ github.ref_name }}` succeeded."
+                    }
+                env:
+                  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: conventional-changelog -p angular -i CHANGELOG.md -s
+      - name: Fail if changelog unchanged
+        run: |
+          if git diff --exit-code CHANGELOG.md; then
+            echo "No changelog changes detected — failing."
+            exit 1
+          fi
+      - name: Commit changelog
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "chore(release): update changelog for ${GITHUB_REF#refs/tags/}"
+          git push origin HEAD:main
+      - name: Archive changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-${GITHUB_REF#refs/tags/}
+          path: CHANGELOG.md
+      - name: Notify Slack of Release
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":tada: Release `${{ github.ref_name }}` completed successfully. Changelog inscribed and archived."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [changelog]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install build twine
+      - run: python -m build
+      - name: Publish to PyPI
+        run: twine upload dist/* --non-interactive
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Notify Slack of PyPI Publish
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": ":package: PyPI publish for `${{ github.ref_name }}` succeeded. Release is live."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          payload: |
+            {
+              "text": ":package: PyPI publish for `${{ github.ref_name }}` succeeded. Release is live."
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          name: changelog-${GITHUB_REF#refs/tags/}
+          path: CHANGELOG.md
+        - name: Notify Slack of Release
+          if: success()
+          uses: slackapi/slack-github-action@v1.24.0
+          with:
+            payload: |
+              {
+                "text": ":tada: Release `${{ github.ref_name }}` completed successfully. Changelog inscribed and archived."
+              }
+          env:
+            SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [changelog]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install build twine
+      - run: python -m build
+      - name: Publish to PyPI
+        run: twine upload dist/* --non-interactive
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        - name: Notify Slack of PyPI Publish
+          if: success()
+          uses: slackapi/slack-github-action@v1.24.0
+          with:
+            payload: |
+              {
+                "text": ":package: PyPI publish for `${{ github.ref_name }}` succeeded. Release is live."
+              }
+          env:
+            SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Commit and push changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "chore(release): update changelog for $VERSION [skip ci]" || echo "No changes to commit"
+          git push origin HEAD:main
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

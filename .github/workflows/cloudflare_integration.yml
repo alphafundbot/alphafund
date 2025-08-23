@@ -1,0 +1,193 @@
+
+# =============================================================
+# 🌐 Cloudflare Integration — Targeted Purge Sentinel
+#
+# This workflow purges only the assets that changed between the
+# last deployed commit and the current commit, keeping the rest
+# of the cache warm. Fallbacks and toggles are built in.
+#
+# 🔑 Controls & Toggles:
+#   - CLOUDFLARE_API_TOKEN: GitHub secret (Zone:Cache Purge)
+#   - CLOUDFLARE_ZONE_ID:   GitHub secret (from Cloudflare dashboard)
+#   - LAST_DEPLOY_SHA:      Commit SHA of last production deploy (env or set by deploy job)
+#   - FORCE_FULL_PURGE:     If 'true', purges entire cache (env or workflow_dispatch)
+#   - USE_PR_DETECTION:     If 'true', uses PR-changed files for pre-merge validation
+#   - GRAFANA_API_KEY:      GitHub secret (for purge metrics, matches changelog ritual)
+#   - GRAFANA_INSTANCE:     Grafana instance URL (for metrics)
+#   - PURGE_SUMMARY_COMMENT: If 'false', disables PR/release summary comment (default: true)
+#
+# 🔄 Default Flow:
+#   1. Detect changed assets via git diff from LAST_DEPLOY_SHA to HEAD
+#   2. Build full URLs for thinairai.store
+#   3. Purge only those URLs via Cloudflare API
+#   4. Fallback to full purge if toggle set or detection fails
+#   5. Post purge summary to PR/release (unless PURGE_SUMMARY_COMMENT is false)
+#   6. Push purge metrics to Grafana (if secrets present)
+#
+# See /docs/cloudflare_integration.md for full details.
+# =============================================================
+name: Cloudflare Integration Ritual
+
+on:
+  workflow_run:
+    workflows: ["Production Deploy Ritual"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  cloudflare_integration:
+    name: Purge Cache & Optional DNS Update
+    runs-on: ubuntu-latest
+    steps:
+
+      # 🛡️ Guard: Ensure Cloudflare Secrets Present
+      # Only runs if both required Cloudflare secrets are set in repo settings.
+      - name: "🛡️ Guard: Ensure Cloudflare Secrets Present"
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ZONE_ID != '' }}
+        run: echo "Cloudflare secrets detected. Proceeding with integration."
+
+      # 🟦 Sentinel: Detect Changed Assets (last-deploy-to-current diff or PR-based)
+      #
+      # - By default, uses git diff from LAST_DEPLOY_SHA to HEAD to find changed assets.
+      # - If USE_PR_DETECTION is 'true', uses PR-changed files for pre-merge validation.
+      # - Asset extensions filtered: .js, .css, .html, .png, .jpg, .svg, .json, .ico
+      # - Outputs 'purge_urls' as a JSON array for the purge step.
+      - name: "🟦 Detect Changed Assets for Targeted Purge"
+        id: detect_assets
+        env:
+          BASE_DOMAIN: thinairai.store
+          USE_PR_DETECTION: ${{ env.USE_PR_DETECTION || 'false' }}
+          LAST_DEPLOY_SHA: ${{ env.LAST_DEPLOY_SHA || '' }}
+        run: |
+          set -e
+          # Toggle: Use PR-based detection if set
+          if [ "$USE_PR_DETECTION" = "true" ]; then
+            echo "Using PR-based changed files detection."
+            if [ -f "$GITHUB_EVENT_PATH" ]; then
+              jq -r '.pull_request.changed_files[]?' "$GITHUB_EVENT_PATH" > changed_files.txt || true
+            fi
+          else
+            # Default: last-deploy-to-current diff
+            if [ -n "$LAST_DEPLOY_SHA" ]; then
+              echo "Diffing from last deployed SHA: $LAST_DEPLOY_SHA"
+              git fetch --all --tags --prune
+              git diff --name-only $LAST_DEPLOY_SHA HEAD > changed_files.txt || true
+            else
+              echo "No LAST_DEPLOY_SHA set. Skipping targeted detection."
+              touch changed_files.txt
+            fi
+          fi
+          # Filter for asset files (customize as needed)
+          grep -E '\.(js|css|html|png|jpg|svg|json|ico)$' changed_files.txt | sort -u > asset_paths.txt || true
+          # Build full URLs for Cloudflare purge
+          PURGE_URLS=()
+          while read -r path; do
+            [ -n "$path" ] && PURGE_URLS+=("https://$BASE_DOMAIN/$path")
+          done < asset_paths.txt
+          if [ ${#PURGE_URLS[@]} -eq 0 ]; then
+            echo "No changed asset URLs detected."
+            echo "purge_urls=[]" >> $GITHUB_OUTPUT
+          else
+            echo "Detected URLs to purge: ${PURGE_URLS[*]}"
+            printf '%s\n' "${PURGE_URLS[@]}" > purge_urls.txt
+            echo "purge_urls=$(jq -c -R -s 'split("\n")[:-1]' purge_urls.txt)" >> $GITHUB_OUTPUT
+          fi
+
+      # � Purge Cloudflare Cache (targeted or full, with fallback)
+      #
+      # - Purges only detected asset URLs if found.
+      # - If FORCE_FULL_PURGE is 'true' or no assets detected, purges entire cache.
+
+      # 🚨 Purge Cloudflare Cache (targeted or full, with fallback)
+      #
+      # - Purges only detected asset URLs if found.
+      # - If FORCE_FULL_PURGE is 'true' or no assets detected, purges entire cache.
+      # - Sets PURGE_TYPE, ASSET_COUNT, and FALLBACK_REASON for downstream steps.
+      - name: "🚀 Purge Cloudflare Cache (Targeted)"
+        id: purge_cloudflare
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ZONE_ID != '' }}
+        env:
+          PURGE_URLS: ${{ steps.detect_assets.outputs.purge_urls }}
+          FORCE_FULL_PURGE: ${{ env.FORCE_FULL_PURGE || 'false' }}
+        run: |
+          set -e
+          ASSET_COUNT=0
+          PURGE_TYPE="targeted"
+          FALLBACK_REASON=""
+          if [ "$FORCE_FULL_PURGE" = "true" ]; then
+            PURGE_TYPE="full"
+            FALLBACK_REASON="FORCE_FULL_PURGE set"
+            curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --data '{"purge_everything":true}'
+          elif [ -n "$PURGE_URLS" ] && [ "$PURGE_URLS" != "[]" ]; then
+            ASSET_COUNT=$(echo "$PURGE_URLS" | jq length)
+            curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --data "{\"files\":$PURGE_URLS}"
+          else
+            PURGE_TYPE="full"
+            FALLBACK_REASON="No asset URLs detected or detection failed"
+            curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --data '{"purge_everything":true}'
+          fi
+          echo "PURGE_TYPE=$PURGE_TYPE" >> $GITHUB_ENV
+          echo "ASSET_COUNT=$ASSET_COUNT" >> $GITHUB_ENV
+          echo "FALLBACK_REASON=$FALLBACK_REASON" >> $GITHUB_ENV
+
+      # 🗒️ Post purge summary to PR or release discussion
+      # Includes purge type (targeted/full), asset count, and fallback reason if any.
+      # Controlled by PURGE_SUMMARY_COMMENT (default: true)
+      - name: Post Purge Summary Comment
+        if: env.PURGE_SUMMARY_COMMENT != 'false' && github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY="**Cloudflare Purge Summary**\n\nType: $PURGE_TYPE\nAssets Purged: $ASSET_COUNT\nFallback: ${FALLBACK_REASON:-None}\nTimestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body "$SUMMARY"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            gh release comment ${{ github.event.release.id }} --body "$SUMMARY"
+          fi
+
+      # 📊 Push purge metrics to Grafana for operational telemetry
+      # Mirrors changelog ritual's Grafana integration pattern.
+      - name: Push Purge Metrics to Grafana
+        if: ${{ secrets.GRAFANA_API_KEY != '' && secrets.GRAFANA_INSTANCE != '' }}
+        env:
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          GRAFANA_INSTANCE: ${{ secrets.GRAFANA_INSTANCE }}
+        run: |
+          curl -X POST "https://${GRAFANA_INSTANCE}/api/annotations" \
+            -H "Authorization: Bearer ${GRAFANA_API_KEY}" \
+            -H "Content-Type: application/json" \
+            --data "{\n  \"tags\": [\"cloudflare\", \"purge\", \"$PURGE_TYPE\"],\n  \"text\": \"Cloudflare purge: $PURGE_TYPE, assets=$ASSET_COUNT, fallback=${FALLBACK_REASON:-None}\",\n  \"time\": $(date +%s%3N)\n}"
+
+      # 🟦 Optional: Update DNS Record
+      #
+      # - Only runs if UPDATE_DNS is 'true' and all DNS secrets are set.
+      # - Updates the A record for thinairai.store to the specified IP.
+      - name: "🟦 Optional: Update DNS Record"
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ZONE_ID != '' && env.UPDATE_DNS == 'true' }}
+        env:
+          RECORD_ID: ${{ secrets.CLOUDFLARE_RECORD_ID }}
+          RECORD_NAME: thinairai.store
+          RECORD_CONTENT: 203.0.113.42 # <-- Set to your new IP as needed
+        run: |
+          curl -X PUT "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/dns_records/${RECORD_ID}" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "{\"type\":\"A\",\"name\":\"${RECORD_NAME}\",\"content\":\"${RECORD_CONTENT}\",\"ttl\":120,\"proxied\":true}"
+
+      # 🔍 Lint workflow YAML
+      #
+      # - Ensures this workflow remains parser-clean and audit-ready.
+      - name: "🔍 Lint workflow YAML"
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .github/workflows/cloudflare_integration.yml
